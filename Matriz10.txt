@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario de Registro - 10 Secciones</title>
+    <!-- ExcelJS para exportación nativa -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    
+    <!-- FIREBASE COMPAT (Solo Database, sin Storage) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
+    <style>
+        :root { --primary: #5346ea; --primary-hover: #3b30b4; --bg-color: #f4f6f9; --text-main: #2f3542; --border-color: #e1e8ef; --success: #2ed573; --warning: #ffa502; --danger: #ff4757; --row-selected: #e8ebff; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; }
+        .card { background-color: #ffffff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        h2, h3 { color: var(--primary); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 0; font-size: 1.2em; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-weight: 600; margin-bottom: 6px; font-size: 0.85em; color: #555; }
+        input, select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 5px; font-family: inherit; transition: border-color 0.3s; font-size: 0.9em; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(83, 70, 234, 0.2); }
+        .action-buttons { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-top: 20px; position: sticky; bottom: 20px; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); z-index: 100; }
+        button { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; transition: background-color 0.3s, transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        button svg { width: 18px; height: 18px; fill: currentColor; }
+        .btn-visualizar { background-color: var(--primary); } .btn-visualizar:hover { background-color: var(--primary-hover); }
+        .btn-modificar { background-color: var(--warning); color: #fff; } .btn-modificar:hover { background-color: #e59400; }
+        .btn-guardar { background-color: var(--success); } .btn-guardar:hover { background-color: #29be67; }
+        .btn-excel { background-color: #107c41; } .btn-excel:hover { background-color: #0c6132; }
+        .table-container { overflow-x: auto; max-height: 400px; border: 1px solid var(--border-color); border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 0.9em; }
+        th { background-color: var(--primary); color: white; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 10; }
+        td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
+        tbody tr { cursor: pointer; transition: background-color 0.2s; }
+        tbody tr:nth-child(even) { background-color: #f9f9fb; }
+        tbody tr:hover { background-color: #eef0fa; }
+        tbody tr.selected-row { background-color: var(--row-selected) !important; border-left: 4px solid var(--primary); }
+        dialog { border: none; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); padding: 0; width: 90%; max-width: 800px; }
+        dialog::backdrop { background: rgba(0,0,0,0.5); }
+        .modal-header { background-color: var(--primary); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; max-height: 70vh; overflow-y: auto; font-size: 0.9em; line-height: 1.5; }
+        .modal-body a { color: var(--primary); font-weight: bold; text-decoration: none; }
+        .modal-body a:hover { text-decoration: underline; }
+        .close-modal { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; }
+    </style>
+</head>
+<body>
+
+    <form id="mainForm">
+        <!-- SECCIÓN I -->
+        <div class="card">
+            <h2>SECCIÓN I - INFORMACIÓN GENERAL</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Especialista</label>
+                    <select id="especialista" required>
+                        <option value="">Seleccione...</option>
+                        <option value="ALE SANCHEZ, ISABEL">ALE SANCHEZ, ISABEL</option>
+                        <option value="ALEGRE ALMIRENA, SOLEDAD">ALEGRE ALMIRENA, SOLEDAD</option>
+                        <option value="APARCANA BRAVO, FLOR">APARCANA BRAVO, FLOR</option>
+                        <option value="ARAUJO BOID, FRANCISCA">ARAUJO BOID, FRANCISCA</option>
+                        <option value="CORNEJO LOBO, REBECA">CORNEJO LOBO, REBECA</option>
+                        <option value="SICHEZ VALLE, ROSARIO">SICHEZ VALLE, ROSARIO</option>
+                        <option value="VALDIVIA RAMIREZ, FERNANDO">VALDIVIA RAMIREZ, FERNANDO</option>
+                        <option value="VELASQUEZ ALVARADO, DORIS">VELASQUEZ ALVARADO, DORIS</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Fecha de Registro</label><input type="date" id="fechaRegistro" required></div>
+                <div class="form-group"><label>Sector</label><select id="sector" required><option value="">Seleccione...</option></select></div>
+                <div class="form-group"><label>Entidad</label><select id="entidad" required><option value="">Seleccione Sector primero...</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN II -->
+        <div class="card">
+            <h2>SECCIÓN II - POLÍTICA DE IGUALDAD DE GÉNERO</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec2_fecha"></div>
+                <div class="form-group"><label>Norma de Creación</label><input type="text" id="sec2_norma" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec2_denominacion" maxlength="100"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN III -->
+        <div class="card">
+            <h2>SECCIÓN III - PLAN ESTRATÉGICO INSTITUCIONAL</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec3_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec3_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec3_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>OEI</label><input type="text" id="sec3_oei" maxlength="100"></div>
+                <div class="form-group"><label>AEI</label><input type="text" id="sec3_aei" maxlength="100"></div>
+                <div class="form-group"><label>Indicador</label><input type="text" id="sec3_ind" maxlength="100"></div>
+                <div class="form-group"><label>Otros Aspectos (Género PEI)</label><input type="text" id="sec3_otros" maxlength="100"></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN IV -->
+        <div class="card">
+            <h2>SECCIÓN IV - REGLAMENTO DE ORGANIZACIÓN Y FUNCIONES</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec4_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec4_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec4_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Disposiciones</label><input type="text" id="sec4_disp" maxlength="100"></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec4_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN V -->
+        <div class="card">
+            <h2>SECCIÓN V - PLANES COMUNICACIONALES</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec5_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec5_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec5_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Disposiciones</label><input type="text" id="sec5_disp" maxlength="100"></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec5_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN VI -->
+        <div class="card">
+            <h2>SECCIÓN VI - PLAN DE BIENESTAR SOCIAL</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec6_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec6_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec6_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Disposiciones</label><input type="text" id="sec6_disp" maxlength="100"></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec6_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN VII -->
+        <div class="card">
+            <h2>SECCIÓN VII - CLIMA Y CULTURA ORGANIZACIONAL</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec7_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec7_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec7_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Disposiciones</label><input type="text" id="sec7_disp" maxlength="100"></div>
+                <!-- Ahora es un campo de enlace URL -->
+                <div class="form-group"><label>Enlace a Evidencia (URL Drive/Nube)</label><input type="url" id="sec7_evidencia" placeholder="https://..."></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec7_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN VIII -->
+        <div class="card">
+            <h2>SECCIÓN VIII - PLAN DE DESARROLLO DE LAS PERSONAS</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>PA Aprobado con EG</label><select id="sec8_pa"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec8_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec8_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec8_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Curso Agentes de Cambio</label><select id="sec8_curso"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec8_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN IX -->
+        <div class="card">
+            <h2>SECCIÓN IX - LENGUAJE INCLUSIVO</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Tipo Documento</label>
+                    <select id="sec9_tipo">
+                        <option value="">Seleccionar...</option>
+                        <option value="DIRECTIVA">DIRECTIVA</option><option value="DISPOSICIÓN">DISPOSICIÓN</option>
+                        <option value="GUÍA">GUÍA</option><option value="INSTRUCTIVO">INSTRUCTIVO</option>
+                        <option value="LINEAMIENTO">LINEAMIENTO</option><option value="MANUAL">MANUAL</option>
+                        <option value="PAUTA">PAUTA</option><option value="OTRO">OTRO</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec9_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec9_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec9_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Actualizado (Ley N° 32003)</label><select id="sec9_act"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                <!-- Ahora es un campo de enlace URL -->
+                <div class="form-group"><label>Enlace PDF (URL Drive/Nube)</label><input type="url" id="sec9_enlace" placeholder="https://..."></div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN X -->
+        <div class="card">
+            <h2>SECCIÓN X - OTROS</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>Fecha de Creación</label><input type="date" id="sec10_fecha"></div>
+                <div class="form-group"><label>Documento de Aprobación</label><input type="text" id="sec10_doc" maxlength="100"></div>
+                <div class="form-group"><label>Denominación</label><input type="text" id="sec10_denominacion" maxlength="100"></div>
+                <div class="form-group"><label>Disposiciones</label><input type="text" id="sec10_disp" maxlength="100"></div>
+                <!-- Ahora es un campo de enlace URL -->
+                <div class="form-group"><label>Enlace a Evidencia (URL Drive/Nube)</label><input type="url" id="sec10_evidencia" placeholder="https://..."></div>
+                <div class="form-group"><label>Asistencia Técnica</label><select id="sec10_asist"><option value="">Seleccionar...</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button type="button" class="btn-visualizar" onclick="visualizarRegistro()"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg> Visualizar</button>
+            <button type="button" class="btn-modificar" onclick="modificarRegistro()"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Modificar</button>
+            <button type="button" class="btn-guardar" onclick="guardarRegistro()"><svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg> Guardar</button>
+            <button type="button" class="btn-excel" onclick="exportarExcelJS()"><svg viewBox="0 0 24 24"><path d="M21.17 3.25q.33 0 .59.25.24.24.24.58v15.84q0 .34-.24.58-.26.25-.59.25H2.83q-.33 0-.59-.25-.24-.24-.24-.58V4.08q0-.34.24-.58.26-.25.59-.25zM7.5 15.6l2.36-2.91-2.22-2.97h2.12l1.1 1.76q.14.23.2.4.09-.2.22-.44l1.17-1.72h2l-2.26 2.92 2.37 2.96h-2.14l-1.28-1.92q-.11-.19-.17-.33-.06.14-.17.33l-1.26 1.92zm11 1.48V4.73H13v12.35z"/></svg> Exportar a Excel (.xlsx)</button>
+        </div>
+    </form>
+
+    <div class="card">
+        <h3>REGISTROS ALMACENADOS (<span id="contador">0</span>)</h3>
+        <div class="table-container">
+            <table id="tablaRegistros">
+                <thead>
+                    <tr><th>N°</th><th>Especialista</th><th>Fecha de Registro</th><th>Sector</th><th>Entidad</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <dialog id="modalVisualizar">
+        <div class="modal-header">
+            <h3 style="margin:0; border:none; color:white;">Detalle Completo del Registro</h3>
+            <button class="close-modal" onclick="document.getElementById('modalVisualizar').close()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalContenido"></div>
+    </dialog>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyAmBVqUKz8jbE8qJ1Hq9cEGxlKtAeaNvhw",
+          authDomain: "normas-pig.firebaseapp.com",
+          databaseURL: "https://normas-pig-default-rtdb.firebaseio.com",
+          projectId: "normas-pig",
+          storageBucket: "normas-pig.firebasestorage.app",
+          messagingSenderId: "167883143923",
+          appId: "1:167883143923:web:3b4435ff8335404b47d586"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const registrosRef = db.ref('registros_formularios');
+
+        const PARAMETROS_SECTORES = {
+            "AMBIENTE": ["IGP", "IIAP", "INAIGEM", "OEFA", "SENACE", "SENAMHI", "SERNANP"],
+            "COMERCIO EXTERIOR Y TURISMO": ["CENFOTUR", "MINCETUR"],
+            "CULTURA": ["AGN", "BNP", "MINCUL", "PGE"],
+            "DEFENSA": ["CENEPRED", "INDECI", "MINDEF"],
+            "DESARROLLO AGRARIO Y RIEGO": ["INIA", "MIDAGRI", "SENASA"],
+            "DESARROLLO E INCLUSIÓN SOCIAL": ["FONCODES", "MIDIS", "PROGRAMA CONTIGO", "PROGRAMA CUNA MÁS", "PROGRAMA JUNTOS", "PROGRAMA PAIS", "PROGRAMA PENSIÓN 65", "PROGRAMA WASI MIKUNA"],
+            "ECONOMÍA Y FINANZAS": ["BN", "FONAFE", "MEF", "ONP", "OSCE", "PERÚ COMPRAS", "PROINVERSIÓN", "SMV"],
+            "EDUCACIÓN": ["IPD", "MINEDU", "SINEACE", "SUNEDU"],
+            "ENERGÍA Y MINAS": ["INGEMMET", "IPEN", "MINEM"],
+            "INTERIOR": ["MIGRACIONES", "MININTER", "SALUDPOL", "SUCAMEC"],
+            "JUSTICIA": ["MINJUSDH", "SUNARP"],
+            "MUJER Y POBLACIONES VULNERABLES": ["CONADIS", "INABIF", "MIMP", "PROGRAMA WARMI ÑAN"],
+            "OCAS": ["CONTRALORÍA GENERAL DE LA REPÚBRICA", "DEFENSORÍA DEL PUEBLO", "JUNTA NACIONAL DE JUSTICIA", "JURADO NACIONAL DE ELECCIONES", "MINISTERIO PÚBLICO - FISCALÍA DE LA NACIÓN", "OFICINA NACIONAL DE PROCESOS ELECTORALES", "REGISTRO NACIONAL DE IDENTIFICACIÓN Y ESTADO CIVIL"],
+            "PODER DEL ESTADO": ["PODER JUDICIAL"],
+            "PRESIDENCIA DEL CONSEJO DE MINISTROS": ["ANIN", "CEPLAN", "CONCYTEC", "DEVIDA", "DINI", "INDECOPI", "INEI", "OSINERGMIN", "OSINFOR", "OSIPTEL", "OSITRAN", "PCM", "SERVIR", "SUNASS"],
+            "PRODUCCIÓN": ["FONDEPES", "IMARPE", "INACAL", "ITP", "PRODUCE", "SANIPES"],
+            "RELACIONES EXTERIORES": ["APCI", "RREE"],
+            "SALUD": ["INEN", "SIS", "SUSALUD"],
+            "TRABAJO Y PROMOCIÓN DEL EMPLEO": ["ESSALUD", "MTPE", "SUNAFIL"],
+            "TRANSPORTE Y COMUNICACIONES": ["ATU", "MTC", "PROVIAS DESCENTRALIZADO", "PROVIAS NACIONAL", "SUTRAN"],
+            "VIVIENDA Y CONSTRUCCIÓN": ["COFOPRI", "FONDO MI VIVIENDA", "MVCS", "OTASS", "SBN", "SEDAPAL"]
+        };
+
+        const idsCampos = [
+            'especialista', 'fechaRegistro', 'sector', 'entidad',
+            'sec2_fecha', 'sec2_norma', 'sec2_denominacion',
+            'sec3_fecha', 'sec3_doc', 'sec3_denominacion', 'sec3_oei', 'sec3_aei', 'sec3_ind', 'sec3_otros',
+            'sec4_fecha', 'sec4_doc', 'sec4_denominacion', 'sec4_disp', 'sec4_asist',
+            'sec5_fecha', 'sec5_doc', 'sec5_denominacion', 'sec5_disp', 'sec5_asist',
+            'sec6_fecha', 'sec6_doc', 'sec6_denominacion', 'sec6_disp', 'sec6_asist',
+            'sec7_fecha', 'sec7_doc', 'sec7_denominacion', 'sec7_disp', 'sec7_evidencia', 'sec7_asist',
+            'sec8_pa', 'sec8_fecha', 'sec8_doc', 'sec8_denominacion', 'sec8_curso', 'sec8_asist',
+            'sec9_tipo', 'sec9_fecha', 'sec9_doc', 'sec9_denominacion', 'sec9_act', 'sec9_enlace',
+            'sec10_fecha', 'sec10_doc', 'sec10_denominacion', 'sec10_disp', 'sec10_evidencia', 'sec10_asist'
+        ];
+
+        let registrosArray = [];
+        let firebaseKeys = [];
+        let registroSeleccionadoIndex = null;
+        let modoEdicionIndex = null;
+
+        const sectorSelect = document.getElementById('sector');
+        const entidadSelect = document.getElementById('entidad');
+
+        Object.keys(PARAMETROS_SECTORES).forEach(s => { sectorSelect.appendChild(new Option(s, s)); });
+
+        sectorSelect.addEventListener('change', function() {
+            entidadSelect.innerHTML = '<option value="">Seleccione Entidad...</option>';
+            if(this.value && PARAMETROS_SECTORES[this.value]) {
+                PARAMETROS_SECTORES[this.value].forEach(e => entidadSelect.appendChild(new Option(e, e)));
+            }
+        });
+
+        registrosRef.on('value', (snapshot) => {
+            registrosArray = [];
+            firebaseKeys = [];
+            snapshot.forEach((childSnapshot) => {
+                firebaseKeys.push(childSnapshot.key);
+                registrosArray.push(childSnapshot.val());
+            });
+            renderTabla();
+        });
+
+        // NUEVA FUNCIÓN: Convierte AAAA-MM-DD a DD/MM/AAAA
+        function formatearFecha(fecha) {
+            if (!fecha) return '-';
+            const partes = fecha.split('-');
+            if (partes.length !== 3) return fecha;
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        function renderTabla() {
+            const tbody = document.querySelector('#tablaRegistros tbody');
+            tbody.innerHTML = '';
+            document.getElementById('contador').textContent = registrosArray.length;
+
+            registrosArray.forEach((reg, index) => {
+                let tr = document.createElement('tr');
+                
+                // Formateamos la fecha antes de insertarla en la tabla
+                let fechaFormateada = formatearFecha(reg.fechaRegistro);
+                
+                tr.innerHTML = `<td>${index + 1}</td><td>${reg.especialista}</td><td>${fechaFormateada}</td><td>${reg.sector}</td><td>${reg.entidad}</td>`;
+                tr.onclick = function() {
+                    document.querySelectorAll('#tablaRegistros tbody tr').forEach(el => el.classList.remove('selected-row'));
+                    this.classList.add('selected-row');
+                    registroSeleccionadoIndex = index;
+                };
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.guardarRegistro = function() {
+            let formData = {};
+            idsCampos.forEach(id => {
+                formData[id] = document.getElementById(id).value || '';
+            });
+
+            if(!formData.especialista || !formData.fechaRegistro) return alert("Complete los datos generales (Sec. I)");
+
+            if(modoEdicionIndex !== null) {
+                const idFirebase = firebaseKeys[modoEdicionIndex];
+                db.ref('registros_formularios/' + idFirebase).update(formData).then(() => {
+                    alert("Registro modificado en la nube correctamente.");
+                    modoEdicionIndex = null;
+                }).catch((error) => alert("Error al modificar: " + error));
+            } else {
+                registrosRef.push(formData).then(() => {
+                    alert("Nuevo registro guardado con éxito.");
+                }).catch((error) => alert("Error al guardar: " + error));
+            }
+            
+            document.getElementById('mainForm').reset();
+            registroSeleccionadoIndex = null;
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        window.modificarRegistro = function() {
+            if(registroSeleccionadoIndex === null) return alert('Seleccione una fila primero.');
+            const reg = registrosArray[registroSeleccionadoIndex];
+            
+            idsCampos.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    if(id === 'sector') { 
+                        el.value = reg[id]; 
+                        sectorSelect.dispatchEvent(new Event('change')); 
+                    } else { 
+                        el.value = reg[id] || ''; 
+                    }
+                }
+            });
+
+            modoEdicionIndex = registroSeleccionadoIndex;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.visualizarRegistro = function() {
+            if(registroSeleccionadoIndex === null) return alert('Seleccione una fila primero.');
+            const r = registrosArray[registroSeleccionadoIndex];
+            
+            const linkUrl = (url) => url ? `<a href="${url}" target="_blank">Ver Documento 🔗</a>` : 'Ninguno';
+
+            // Todas las fechas del modal también usan la función formatearFecha
+            document.getElementById('modalContenido').innerHTML = `
+                <p><strong>I. GENERAL:</strong> ${r.especialista} | ${r.sector} - ${r.entidad} | Fecha: ${formatearFecha(r.fechaRegistro)}</p><hr>
+                <p><strong>II. POLÍTICA DE IGUALDAD:</strong> ${formatearFecha(r.sec2_fecha)} | ${r.sec2_norma} | ${r.sec2_denominacion}</p><hr>
+                <p><strong>III. PEI:</strong> ${formatearFecha(r.sec3_fecha)} | ${r.sec3_doc} | ${r.sec3_oei}</p><hr>
+                <p><strong>IV. ROF:</strong> ${formatearFecha(r.sec4_fecha)} | ${r.sec4_denominacion} | Asist: ${r.sec4_asist}</p><hr>
+                <p><strong>V. PLAN COMUNICACIONAL:</strong> ${formatearFecha(r.sec5_fecha)} | Asist: ${r.sec5_asist}</p><hr>
+                <p><strong>VI. PLAN BIENESTAR:</strong> ${formatearFecha(r.sec6_fecha)} | Asist: ${r.sec6_asist}</p><hr>
+                <p><strong>VII. CLIMA:</strong> ${formatearFecha(r.sec7_fecha)} | Enlace: ${linkUrl(r.sec7_evidencia)} | Asist: ${r.sec7_asist}</p><hr>
+                <p><strong>VIII. PLAN PERSONAS:</strong> PA Aprobado: ${r.sec8_pa} | Fecha: ${formatearFecha(r.sec8_fecha)} | Asist: ${r.sec8_asist}</p><hr>
+                <p><strong>IX. LENGUAJE INCLUSIVO:</strong> Tipo: ${r.sec9_tipo} | Fecha: ${formatearFecha(r.sec9_fecha)} | Ley 32003: ${r.sec9_act} | Enlace PDF: ${linkUrl(r.sec9_enlace)}</p><hr>
+                <p><strong>X. OTROS:</strong> ${formatearFecha(r.sec10_fecha)} | Enlace: ${linkUrl(r.sec10_evidencia)} | Asist: ${r.sec10_asist}</p>
+            `;
+            document.getElementById('modalVisualizar').showModal();
+        }
+
+        window.exportarExcelJS = async function() {
+            if (registrosArray.length === 0) return alert('No hay datos para exportar');
+            const wb = new ExcelJS.Workbook();
+            
+            const hojas = {
+                'SECCIÓN II': { tit: 'SECCIÓN II - POLÍTICA DE IGUALDAD DE GÉNERO', cols: ['Fecha', 'Norma', 'Denominación'], keys: ['sec2_fecha', 'sec2_norma', 'sec2_denominacion'] },
+                'SECCIÓN III': { tit: 'SECCIÓN III - PEI', cols: ['Fecha', 'Doc', 'Denominación', 'OEI', 'AEI', 'Ind', 'Otros'], keys: ['sec3_fecha', 'sec3_doc', 'sec3_denominacion', 'sec3_oei', 'sec3_aei', 'sec3_ind', 'sec3_otros'] },
+                'SECCIÓN IV': { tit: 'SECCIÓN IV - ROF', cols: ['Fecha', 'Doc', 'Denominación', 'Disp', 'Asist'], keys: ['sec4_fecha', 'sec4_doc', 'sec4_denominacion', 'sec4_disp', 'sec4_asist'] },
+                'SECCIÓN V': { tit: 'SECCIÓN V - PLANES COMICACIONALES', cols: ['Fecha', 'Doc', 'Denominación', 'Disp', 'Asist'], keys: ['sec5_fecha', 'sec5_doc', 'sec5_denominacion', 'sec5_disp', 'sec5_asist'] },
+                'SECCIÓN VI': { tit: 'SECCIÓN VI - PLAN DE BIENESTAR SOCIAL', cols: ['Fecha', 'Doc', 'Denominación', 'Disp', 'Asist'], keys: ['sec6_fecha', 'sec6_doc', 'sec6_denominacion', 'sec6_disp', 'sec6_asist'] },
+                'SECCIÓN VII': { tit: 'SECCIÓN VII - CLIMA', cols: ['Fecha', 'Doc', 'Denominación', 'Disp', 'Enlace Evidencia', 'Asist'], keys: ['sec7_fecha', 'sec7_doc', 'sec7_denominacion', 'sec7_disp', 'sec7_evidencia', 'sec7_asist'] },
+                'SECCIÓN VIII': { tit: 'SECCIÓN VIII - PLAN PERSONAS', cols: ['PA Aprob', 'Fecha', 'Doc', 'Denominación', 'Curso', 'Asist'], keys: ['sec8_pa', 'sec8_fecha', 'sec8_doc', 'sec8_denominacion', 'sec8_curso', 'sec8_asist'] },
+                'SECCIÓN IX': { tit: 'SECCIÓN IX - LENGUAJE INCLUSIVO', cols: ['Tipo', 'Fecha', 'Doc', 'Denominación', 'Act Ley 32003', 'Enlace PDF'], keys: ['sec9_tipo', 'sec9_fecha', 'sec9_doc', 'sec9_denominacion', 'sec9_act', 'sec9_enlace'] },
+                'SECCIÓN X': { tit: 'SECCIÓN X - OTROS', cols: ['Fecha', 'Doc', 'Denominación', 'Disp', 'Enlace Evidencia', 'Asist'], keys: ['sec10_fecha', 'sec10_doc', 'sec10_denominacion', 'sec10_disp', 'sec10_evidencia', 'sec10_asist'] }
+            };
+
+            const bgAzul = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5346EA' } };
+            const fontB = { color: { argb: 'FFFFFFFF' }, bold: true };
+            const bFino = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+
+            for (const [nHoja, conf] of Object.entries(hojas)) {
+                const ws = wb.addWorksheet(nHoja);
+                ws.mergeCells('A1:D1'); ws.getCell('A1').value = 'SECCIÓN I - INFORMACIÓN GENERAL';
+                const colLetra = String.fromCharCode(64 + 4 + conf.cols.length);
+                ws.mergeCells(`E1:${colLetra}1`); ws.getCell('E1').value = conf.tit;
+                [ws.getCell('A1'), ws.getCell('E1')].forEach(c => { c.fill = bgAzul; c.font = fontB; c.alignment = {horizontal:'center'}; c.border = bFino; });
+
+                const hRow = ws.getRow(2);
+                hRow.values = ['Especialista', 'Fecha de Registro', 'Sector', 'Entidad', ...conf.cols];
+                hRow.eachCell(c => { c.fill = bgAzul; c.font = fontB; c.alignment = {horizontal:'center'}; c.border = bFino; });
+
+                registrosArray.forEach((r, i) => {
+                    const rData = [
+                        r.especialista, 
+                        formatearFecha(r.fechaRegistro), // Formateamos la fecha general aquí
+                        r.sector, 
+                        r.entidad, 
+                        ...conf.keys.map(k => {
+                            let val = r[k] || '-';
+                            // Si la columna es de fecha, aplicamos el formato antes de llevarlo a Excel
+                            if (k.includes('fecha') && val !== '-') {
+                                val = formatearFecha(val);
+                            }
+                            return val;
+                        })
+                    ];
+                    const row = ws.addRow(rData);
+                    row.eachCell(c => { c.border = bFino; c.numFmt = '@'; });
+                    if (i % 2 !== 0) row.eachCell(c => { c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF9F9FB'} }; });
+                });
+                ws.columns.forEach(c => c.width = 25);
+            }
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `Matriz_MIG_Oficial.xlsx`; a.click();
+        }
+    </script>
+</body>
+</html>

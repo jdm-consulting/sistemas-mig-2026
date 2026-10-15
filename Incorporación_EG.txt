@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INCORPORACIÓN DE EG EN SA - Sistema de Registro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <!-- FIREBASE COMPAT -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { background-color: rgba(255, 255, 255, 0.22) !important; color: #ffffff !important; font-weight: 800 !important; box-shadow: inset 0 1px 2px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 bg-slate-100/80">
+
+    <header class="bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 text-white shadow-xl rounded-b-3xl sm:rounded-b-[2rem] mx-2 sm:mx-4 mt-2">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight uppercase text-white drop-shadow-sm">INCORPORACIÓN DE EG EN SA</h1>
+                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mt-1.5">
+                        <span class="text-xs font-bold text-indigo-100 tracking-wider uppercase">SISTEMA DE ASISTENCIA TÉCNICA</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/40 backdrop-blur-sm shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado en Firebase
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="bg-indigo-900/40 p-1.5 rounded-2xl flex flex-wrap items-center justify-center gap-1 border border-indigo-300/25 backdrop-blur-md shadow-inner">
+                <button id="tab-btn-form" onclick="switchTab('form')" class="py-2 px-4 rounded-xl text-xs font-bold text-indigo-100 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2 tab-active">
+                    <i class="ph ph-pencil-simple-line text-base"></i> Formulario
+                </button>
+                <button id="tab-btn-dashboard" onclick="switchTab('dashboard')" class="py-2 px-4 rounded-xl text-xs font-bold text-indigo-100 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                    <i class="ph ph-table text-base"></i> Hoja de Registros (<span id="nav-count" class="font-mono font-extrabold">0</span>)
+                </button>
+                <button id="tab-btn-kpi" onclick="switchTab('kpi')" class="py-2 px-4 rounded-xl text-xs font-bold text-indigo-100 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                    <i class="ph ph-chart-pie-slice text-base"></i> Dashboard
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <!-- Modal de Previsualización -->
+        <div id="preview-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden transition-opacity">
+            <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden transform transition-all">
+                <div class="bg-slate-900 px-6 py-4 flex items-center justify-between border-b border-slate-800">
+                    <div class="flex items-center gap-2.5 text-white">
+                        <div class="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-400/30"><i class="ph ph-eye text-xl"></i></div>
+                        <div>
+                            <h3 class="font-extrabold text-sm tracking-wide">Detalle Completo del Registro</h3>
+                            <p class="text-[11px] text-slate-400">Previsualización de los datos guardados en el sistema</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="preview-id-badge" class="font-mono text-xs font-extrabold px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30"></span>
+                        <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"><i class="ph ph-x text-lg"></i></button>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                        <div><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">Fecha de Registro</span><span id="preview-fecha" class="text-xs font-bold text-slate-800 font-mono"></span></div>
+                        <div><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">Marca Temporal</span><span id="preview-timestamp" class="text-xs font-semibold text-slate-600 font-mono"></span></div>
+                        <div><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">Especialista</span><span id="preview-especialista" class="text-xs font-bold text-indigo-600"></span></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100"><span class="block text-[10px] font-extrabold text-indigo-400 uppercase tracking-wider mb-1">Sector</span><span id="preview-sector" class="text-sm font-bold text-slate-900"></span></div>
+                        <div class="bg-purple-50/50 p-4 rounded-2xl border border-purple-100"><span class="block text-[10px] font-extrabold text-purple-400 uppercase tracking-wider mb-1">Entidad</span><span id="preview-entidad" class="text-sm font-bold text-slate-900"></span></div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80"><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Nivel de Aplicación</span><span id="preview-nivel" class="inline-block px-3 py-1 rounded-xl text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200"></span></div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80"><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Detalle de Intervención</span><p id="preview-detalle" class="text-xs text-slate-800 font-medium whitespace-pre-wrap leading-relaxed"></p></div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80"><span class="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Observaciones</span><p id="preview-observaciones" class="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed"></p></div>
+                </div>
+
+                <div class="bg-slate-100 px-6 py-3 border-t border-slate-200 flex justify-end">
+                    <button onclick="closePreviewModal()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-2"><i class="ph ph-check text-base"></i> Entendido</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: FORMULARIO DE REGISTRO -->
+        <section id="section-form" class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-900 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2"><i class="ph ph-file-plus text-indigo-400"></i> Registro en la Nube</h2>
+                    </div>
+                    <span id="live-timestamp" class="text-xs font-mono bg-slate-800 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-700"></span>
+                </div>
+
+                <form id="registroForm" onsubmit="handleFormSubmit(event)" class="p-6 sm:p-8 space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Especialista <span class="text-red-500">*</span></label>
+                            <select id="especialista" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 pr-8 font-semibold"><option value="">-- Seleccionar Especialista --</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Fecha de Registro <span class="text-red-500">*</span></label>
+                            <input type="date" id="fecha_registro" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 font-semibold">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Sector <span class="text-red-500">*</span></label>
+                            <select id="sector" required onchange="handleSectorChange()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 font-semibold"><option value="">-- Seleccionar Sector --</option></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Entidad <span class="text-red-500">*</span> <span id="entidad-count" class="text-xs font-normal text-slate-500"></span></label>
+                            <select id="entidad" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 font-semibold" disabled><option value="">-- Seleccione un Sector primero --</option></select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Niveles de Aplicación <span class="text-red-500">*</span></label>
+                        <select id="nivel_aplicacion" required class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 font-semibold">
+                            <option value="">-- Seleccionar Nivel de Aplicación --</option>
+                            <option value="Cultura Organizacional (Sistema de Gestión de Recursos Humanos)">1. Cultura Organizacional (Sistema de Gestión de Recursos Humanos)</option>
+                            <option value="Planeamiento Estratégico y Presupuesto Público">2. Planeamiento Estratégico y Presupuesto Público</option>
+                            <option value="Programación Multianual y Gestión de Inversiones">3. Programación Multianual y Gestión de Inversiones</option>
+                            <option value="Sin información">4. Sin información</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Detalle</label><span id="detalle-counter" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">0 / 100</span></div>
+                        <textarea id="detalle" maxlength="100" rows="2" oninput="updateCounter('detalle', 'detalle-counter')" placeholder="Descripción sintética de la intervención..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-2"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Observaciones</label><span id="observaciones-counter" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">0 / 100</span></div>
+                        <textarea id="observaciones" maxlength="100" rows="2" oninput="updateCounter('observaciones', 'observaciones-counter')" placeholder="Anotaciones adicionales..." class="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 p-3 resize-none"></textarea>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row justify-end gap-3">
+                        <button type="button" onclick="resetForm()" class="px-5 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-2"><i class="ph ph-arrow-counter-clockwise text-base"></i> Limpiar Campos</button>
+                        <button type="submit" id="btn-submit" class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"><i class="ph ph-floppy-disk text-lg"></i> Guardar Registro</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- TAB 2: HOJA DE REGISTROS -->
+        <section id="section-dashboard" class="space-y-6 hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-5 bg-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold flex items-center gap-2"><i class="ph ph-table text-indigo-400 text-lg"></i> Hoja de Registros de Firebase</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportToExcel()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md"><i class="ph ph-file-xls text-lg"></i> Descargar Excel (.xlsx)</button>
+                        <button onclick="exportToCSV()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 flex items-center gap-2"><i class="ph ph-download-simple text-base"></i> CSV</button>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <select id="filter-sector" onchange="applyFilters()" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 font-medium"><option value="">Todos los Sectores</option></select>
+                    <select id="filter-especialista" onchange="applyFilters()" class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5 font-medium"><option value="">Todos los Especialistas</option></select>
+                    <input type="text" id="filter-search" oninput="applyFilters()" placeholder="Buscar por entidad o detalle..." class="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg p-2.5">
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900 text-slate-200 uppercase text-[11px] tracking-wider font-extrabold">
+                            <tr>
+                                <th class="p-3.5 text-center">Acciones</th>
+                                <th class="p-3.5">ID</th>
+                                <th class="p-3.5">Fecha Reg.</th>
+                                <th class="p-3.5">Especialista</th>
+                                <th class="p-3.5">Sector</th>
+                                <th class="p-3.5">Entidad</th>
+                                <th class="p-3.5">Nivel Aplicación</th>
+                                <th class="p-3.5">Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-200 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: DASHBOARD DE INDICADORES -->
+        <section id="section-kpi" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4"><div class="p-3 bg-indigo-100 text-indigo-700 rounded-xl"><i class="ph ph-files text-2xl"></i></div><div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Registros</p><h3 id="kpi-total" class="text-2xl font-extrabold text-slate-900">0</h3></div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4"><div class="p-3 bg-emerald-100 text-emerald-700 rounded-xl"><i class="ph ph-buildings text-2xl"></i></div><div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Sectores Coberturados</p><h3 id="kpi-sectores" class="text-2xl font-extrabold text-slate-900">0 / 20</h3></div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4"><div class="p-3 bg-purple-100 text-purple-700 rounded-xl"><i class="ph ph-bank text-2xl"></i></div><div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Entidades Atendidas</p><h3 id="kpi-entidades" class="text-2xl font-extrabold text-slate-900">0</h3></div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4"><div class="p-3 bg-amber-100 text-amber-700 rounded-xl"><i class="ph ph-warning-circle text-2xl"></i></div><div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">% Sin Información</p><h3 id="kpi-sin-info" class="text-2xl font-extrabold text-slate-900">0%</h3></div></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-4">
+                        <div><h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2"><i class="ph ph-user-list text-indigo-600 text-lg"></i> Registros por Especialista</h3></div>
+                    </div>
+                    <div class="relative h-72 w-full flex items-center justify-center"><canvas id="chartEspecialistas"></canvas></div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-4"><h3 class="text-sm font-extrabold text-slate-900 flex items-center gap-2"><i class="ph ph-ranking text-indigo-600 text-lg"></i> Ranking</h3></div>
+                    <div id="especialistas-list" class="space-y-2.5 max-h-72 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // ====> CREDENCIALES OFICIALES FIREBASE <====
+        const firebaseConfig = {
+          apiKey: "AIzaSyAmBVqUKz8jbE8qJ1Hq9cEGxlKtAeaNvhw",
+          authDomain: "normas-pig.firebaseapp.com",
+          databaseURL: "https://normas-pig-default-rtdb.firebaseio.com",
+          projectId: "normas-pig",
+          storageBucket: "normas-pig.firebasestorage.app",
+          messagingSenderId: "167883143923",
+          appId: "1:167883143923:web:3b4435ff8335404b47d586"
+        };
+
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const dbRef = firebase.database().ref('registros_incorporacion_eg');
+
+        const LISTA_ESPECIALISTAS = ["ALE SANCHEZ, ISABEL", "ALEGRE ALMIRENA, SOLEDAD", "APARCANA BRAVO, FLOR", "ARAUJO BOID, FRANCISCA", "CORNEJO LOBO, REBECA", "SICHEZ VALLE, ROSARIO", "VALDIVIA RAMIREZ, FERNANDO", "VELASQUEZ ALVARADO, DORIS"];
+        
+        const PARAMETROS_SECTORES = {
+            "AMBIENTE": ["IGP", "IIAP", "INAIGEM", "OEFA", "SENACE", "SENAMHI", "SERNANP"],
+            "COMERCIO EXTERIOR Y TURISMO": ["CENFOTUR", "MINCETUR"],
+            "CULTURA": ["AGN", "BNP", "MINCUL", "PGE"],
+            "DEFENSA": ["CENEPRED", "INDECI", "MINDEF"],
+            "DESARROLLO AGRARIO Y RIEGO": ["INIA", "MIDAGRI", "SENASA"],
+            "DESARROLLO E INCLUSIÓN SOCIAL": ["FONCODES", "MIDIS", "PROGRAMA CONTIGO", "PROGRAMA CUNA MÁS", "PROGRAMA JUNTOS", "PROGRAMA PAIS", "PROGRAMA PENSIÓN 65", "PROGRAMA WASI MIKUNA"],
+            "ECONOMÍA Y FINANZAS": ["BN", "FONAFE", "MEF", "ONP", "OSCE", "PERÚ COMPRAS", "PROINVERSIÓN", "SMV"],
+            "EDUCACIÓN": ["IPD", "MINEDU", "SINEACE", "SUNEDU"],
+            "ENERGÍA Y MINAS": ["INGEMMET", "IPEN", "MINEM"],
+            "INTERIOR": ["MIGRACIONES", "MININTER", "SALUDPOL", "SUCAMEC"],
+            "JUSTICIA": ["MINJUSDH", "SUNARP"],
+            "MUJER Y POBLACIONES VULNERABLES": ["CONADIS", "INABIF", "MIMP", "PROGRAMA WARMI ÑAN"],
+            "OCAS": ["CONTRALORÍA GENERAL DE LA REPÚBLICA", "DEFENSORÍA DEL PUEBLO", "JUNTA NACIONAL DE JUSTICIA", "JURADO NACIONAL DE ELECCIONES", "MINISTERIO PÚBLICO -FISCALÍA DE LA NACIÓN", "OFICINA NACIONAL DE PROCESOS ELECTORALES", "REGISTRO NACIONAL DE IDENTIFICACIÓN Y ESTADO CIVIL"],
+            "PODER DEL ESTADO": ["PODER JUDICIAL"],
+            "PRESIDENCIA DEL CONSEJO DE MINISTROS": ["ANIN", "CEPLAN", "CONCYTEC", "DEVIDA", "DINI", "INDECOPI", "INEI", "OSINERGMIN", "OSINFOR", "OSIPTEL", "OSITRAN", "PCM", "SERVIR", "SUNASS"],
+            "PRODUCCIÓN": ["FONDEPES", "IMARPE", "INACAL", "ITP", "PRODUCE", "SANIPES"],
+            "RELACIONES EXTERIORES": ["APCI", "RREE"],
+            "SALUD": ["INEN", "SIS", "SUSALUD"],
+            "TRABAJO Y PROMOCIÓN DEL EMPLEO": ["ESSALUD", "MTPE", "SUNAFIL"],
+            "TRANSPORTE Y COMUNICACIONES": ["ATU", "MTC", "PROVIAS DESCENTRALIZADO", "PROVIAS NACIONAL", "SUTRAN"],
+            "VIVIENDA Y CONSTRUCCIÓN": ["COFOPRI", "FONDO MI VIVIENDA", "MVCS", "OTASS", "SBN", "SEDAPAL"]
+        };
+
+        let dbRegistros = [];
+        let chartEspecialistasInstance = null;
+        let editFirebaseKey = null; // Variable global para controlar si estamos en modo edición
+
+        window.onload = function() {
+            startTimestampClock();
+            setDefaultDate();
+            populateSelects();
+
+            // ESCUCHA FIREBASE EN TIEMPO REAL
+            dbRef.on('value', (snapshot) => {
+                dbRegistros = [];
+                snapshot.forEach(child => {
+                    let item = child.val();
+                    item.firebaseKey = child.key;
+                    dbRegistros.push(item);
+                });
+                dbRegistros.reverse(); // Últimos primero
+                updateDashboard();
+            });
+        };
+
+        function setDefaultDate() {
+            const today = new Date().toISOString().substring(0, 10);
+            const fechaInput = document.getElementById('fecha_registro');
+            if (fechaInput) fechaInput.value = today;
+        }
+
+        function startTimestampClock() {
+            const updateClock = () => {
+                const now = new Date();
+                document.getElementById('live-timestamp').innerHTML = `<i class="ph ph-clock text-indigo-400"></i> ${now.toISOString().replace('T', ' ').substring(0, 19)}`;
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        function populateSelects() {
+            const espSelect = document.getElementById('especialista');
+            const espFilter = document.getElementById('filter-especialista');
+            LISTA_ESPECIALISTAS.forEach(name => { espSelect.add(new Option(name, name)); espFilter.add(new Option(name, name)); });
+
+            const secSelect = document.getElementById('sector');
+            const secFilter = document.getElementById('filter-sector');
+            Object.keys(PARAMETROS_SECTORES).sort().forEach(sec => { secSelect.add(new Option(sec, sec)); secFilter.add(new Option(sec, sec)); });
+        }
+
+        function handleSectorChange() {
+            const sectorVal = document.getElementById('sector').value;
+            const entidadSelect = document.getElementById('entidad');
+            entidadSelect.innerHTML = '';
+
+            if (sectorVal && PARAMETROS_SECTORES[sectorVal]) {
+                entidadSelect.disabled = false;
+                entidadSelect.add(new Option('-- Seleccionar Entidad --', ''));
+                PARAMETROS_SECTORES[sectorVal].forEach(ent => entidadSelect.add(new Option(ent, ent)));
+            } else {
+                entidadSelect.disabled = true;
+                entidadSelect.add(new Option('-- Seleccione un Sector primero --', ''));
+            }
+        }
+
+        function updateCounter(inputId, counterId) {
+            const length = document.getElementById(inputId).value.length;
+            document.getElementById(counterId).textContent = `${length} / 100`;
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const sector = document.getElementById('sector').value;
+            const entidad = document.getElementById('entidad').value;
+            const nivel_aplicacion = document.getElementById('nivel_aplicacion').value;
+            if (!sector || !entidad || !nivel_aplicacion) return showToast('Complete los campos (*)', 'error');
+
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+            if (editFirebaseKey) {
+                // MODO ACTUALIZAR
+                const itemOriginal = dbRegistros.find(r => r.firebaseKey === editFirebaseKey);
+                const dataActualizada = {
+                    id: itemOriginal.id, // Mantenemos el ID original (REC-XXXX)
+                    fecha_registro: document.getElementById('fecha_registro').value,
+                    timestamp: timestamp, // Actualizamos la marca temporal
+                    especialista: document.getElementById('especialista').value,
+                    sector: sector,
+                    entidad: entidad,
+                    nivel_aplicacion: nivel_aplicacion,
+                    detalle: document.getElementById('detalle').value.trim() || 'Sin detalle',
+                    observaciones: document.getElementById('observaciones').value.trim() || 'Sin observaciones'
+                };
+
+                dbRef.child(editFirebaseKey).update(dataActualizada).then(() => {
+                    showToast(`¡Registro actualizado exitosamente!`, 'success');
+                    resetForm();
+                    switchTab('dashboard'); // Volvemos a la tabla automáticamente
+                }).catch(err => showToast('Error al actualizar: ' + err, 'error'));
+
+            } else {
+                // MODO CREAR NUEVO
+                const idRegistro = `REC-${String(dbRegistros.length + 1).padStart(4, '0')}`;
+                const nuevoRegistro = {
+                    id: idRegistro,
+                    fecha_registro: document.getElementById('fecha_registro').value,
+                    timestamp: timestamp,
+                    especialista: document.getElementById('especialista').value,
+                    sector: sector,
+                    entidad: entidad,
+                    nivel_aplicacion: nivel_aplicacion,
+                    detalle: document.getElementById('detalle').value.trim() || 'Sin detalle',
+                    observaciones: document.getElementById('observaciones').value.trim() || 'Sin observaciones'
+                };
+
+                dbRef.push(nuevoRegistro).then(() => {
+                    showToast(`¡Registro guardado en Firebase!`, 'success');
+                    resetForm();
+                }).catch(err => showToast('Error al guardar: ' + err, 'error'));
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('registroForm').reset();
+            setDefaultDate();
+            handleSectorChange();
+            updateCounter('detalle', 'detalle-counter');
+            updateCounter('observaciones', 'observaciones-counter');
+            
+            // Limpiamos el modo edición
+            editFirebaseKey = null;
+            document.getElementById('btn-submit').innerHTML = '<i class="ph ph-floppy-disk text-lg"></i> Guardar Registro';
+        }
+
+        function editRegistro(firebaseKey) {
+            const item = dbRegistros.find(r => r.firebaseKey === firebaseKey);
+            if (!item) return;
+
+            document.getElementById('fecha_registro').value = item.fecha_registro;
+            document.getElementById('especialista').value = item.especialista;
+            document.getElementById('sector').value = item.sector;
+            handleSectorChange(); // Rellena las entidades según el sector
+            document.getElementById('entidad').value = item.entidad;
+            document.getElementById('nivel_aplicacion').value = item.nivel_aplicacion;
+            document.getElementById('detalle').value = item.detalle === 'Sin detalle' ? '' : item.detalle;
+            document.getElementById('observaciones').value = item.observaciones === 'Sin observaciones' ? '' : item.observaciones;
+
+            updateCounter('detalle', 'detalle-counter');
+            updateCounter('observaciones', 'observaciones-counter');
+
+            // Activamos modo edición y cambiamos el botón
+            editFirebaseKey = firebaseKey;
+            document.getElementById('btn-submit').innerHTML = '<i class="ph ph-pencil-simple text-lg"></i> Actualizar Registro en Nube';
+
+            switchTab('form');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function eliminarRegistro(firebaseKey) {
+            if (confirm(`¿Está seguro de eliminar permanentemente este registro de la nube?`)) {
+                dbRef.child(firebaseKey).remove().then(() => showToast('Registro eliminado', 'success'));
+            }
+        }
+
+        function formatearFecha(fecha) {
+            if (!fecha) return '-';
+            const partes = fecha.split('-');
+            return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : fecha;
+        }
+
+        function updateDashboard() {
+            const tableBody = document.getElementById('table-body');
+            tableBody.innerHTML = '';
+            const filtered = getFilteredData();
+            document.getElementById('nav-count').textContent = dbRegistros.length;
+
+            if (filtered.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400">No hay registros.</td></tr>`;
+            } else {
+                filtered.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition-colors";
+                    const badgeClass = item.nivel_aplicacion === 'Sin información' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-indigo-100 text-indigo-800 border-indigo-200';
+
+                    tr.innerHTML = `
+                        <td class="p-3.5 text-center flex items-center justify-center gap-1.5">
+                            <button onclick="openPreviewModal('${item.firebaseKey}')" title="Ver Detalle" class="p-1.5 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-xl transition-all shadow-2xs border border-indigo-200 hover:border-indigo-600"><i class="ph ph-eye text-base"></i></button>
+                            <button onclick="editRegistro('${item.firebaseKey}')" title="Modificar" class="p-1.5 bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white rounded-xl transition-all shadow-2xs border border-amber-200 hover:border-amber-600"><i class="ph ph-pencil-simple text-base"></i></button>
+                            <button onclick="eliminarRegistro('${item.firebaseKey}')" title="Eliminar" class="p-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white rounded-xl transition-all shadow-2xs border border-rose-200 hover:border-rose-600"><i class="ph ph-trash text-base"></i></button>
+                        </td>
+                        <td class="p-3.5 font-mono font-bold text-indigo-600">${item.id}</td>
+                        <td class="p-3.5 font-semibold text-slate-800">${formatearFecha(item.fecha_registro)}</td>
+                        <td class="p-3.5 font-semibold text-slate-800">${item.especialista}</td>
+                        <td class="p-3.5"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-700 border border-slate-200">${item.sector}</span></td>
+                        <td class="p-3.5 font-bold text-slate-900">${item.entidad}</td>
+                        <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-[10px] font-bold border ${badgeClass}">${item.nivel_aplicacion}</span></td>
+                        <td class="p-3.5 text-slate-600 max-w-xs truncate" title="${item.detalle}">${item.detalle}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            const total = dbRegistros.length;
+            document.getElementById('kpi-total').textContent = total;
+            document.getElementById('kpi-sectores').textContent = `${new Set(dbRegistros.map(r => r.sector)).size} / 20`;
+            document.getElementById('kpi-entidades').textContent = new Set(dbRegistros.map(r => r.entidad)).size;
+            document.getElementById('kpi-sin-info').textContent = `${total > 0 ? Math.round((dbRegistros.filter(r => r.nivel_aplicacion === 'Sin información').length / total) * 100) : 0}%`;
+
+            updateEspecialistasKPI(total);
+        }
+
+        function openPreviewModal(firebaseKey) {
+            const item = dbRegistros.find(r => r.firebaseKey === firebaseKey);
+            if (!item) return;
+            document.getElementById('preview-id-badge').textContent = item.id;
+            document.getElementById('preview-fecha').textContent = formatearFecha(item.fecha_registro);
+            document.getElementById('preview-timestamp').textContent = item.timestamp;
+            document.getElementById('preview-especialista').textContent = item.especialista;
+            document.getElementById('preview-sector').textContent = item.sector;
+            document.getElementById('preview-entidad').textContent = item.entidad;
+            document.getElementById('preview-nivel').textContent = item.nivel_aplicacion;
+            document.getElementById('preview-detalle').textContent = item.detalle;
+            document.getElementById('preview-observaciones').textContent = item.observaciones;
+            document.getElementById('preview-modal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() { document.getElementById('preview-modal').classList.add('hidden'); }
+
+        function updateEspecialistasKPI(total) {
+            const countsMap = {};
+            LISTA_ESPECIALISTAS.forEach(n => countsMap[n] = 0);
+            dbRegistros.forEach(r => { if(countsMap[r.especialista] !== undefined) countsMap[r.especialista]++; });
+
+            const labels = Object.keys(countsMap);
+            const dataValues = Object.values(countsMap);
+
+            if (chartEspecialistasInstance) chartEspecialistasInstance.destroy();
+            chartEspecialistasInstance = new Chart(document.getElementById('chartEspecialistas'), {
+                type: 'bar',
+                data: { labels: labels.map(l => l.split(',')[0]), datasets: [{ label: 'Registros', data: dataValues, backgroundColor: 'rgba(79, 70, 229, 0.85)' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const listContainer = document.getElementById('especialistas-list');
+            listContainer.innerHTML = '';
+            const maxVal = Math.max(...dataValues, 1);
+
+            Object.entries(countsMap).sort((a, b) => b[1] - a[1]).forEach(([espName, count], idx) => {
+                const div = document.createElement('div');
+                div.className = "bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex flex-col gap-1.5 shadow-2xs";
+                div.innerHTML = `
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center">${idx + 1}</span>${espName}</span>
+                        <span class="font-bold">${count} <span class="text-[10px] text-slate-400">(${total > 0 ? ((count / total) * 100).toFixed(1) : 0}%)</span></span>
+                    </div>
+                    <div class="w-full bg-slate-200 h-2 rounded-full"><div class="bg-indigo-600 h-full rounded-full" style="width: ${Math.max((count / maxVal) * 100, 2)}%"></div></div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function getFilteredData() {
+            const secFilt = document.getElementById('filter-sector').value;
+            const espFilt = document.getElementById('filter-especialista').value;
+            const search = document.getElementById('filter-search').value.toLowerCase();
+            return dbRegistros.filter(r => (!secFilt || r.sector === secFilt) && (!espFilt || r.especialista === espFilt) && (!search || r.entidad.toLowerCase().includes(search) || r.detalle.toLowerCase().includes(search)));
+        }
+
+        function applyFilters() { updateDashboard(); }
+
+        function switchTab(tab) {
+            ['form', 'dashboard', 'kpi'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).classList.remove('tab-active');
+            });
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).classList.add('tab-active');
+            
+            // Si salimos de la pestaña formulario usando las pestañas de navegación y estábamos editando,
+            // podemos optar por limpiar o dejarlo en pausa. Por seguridad visual, lo dejamos tal cual.
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl text-white text-xs shadow-xl transition-all ${type === 'success' ? 'bg-slate-900 border-emerald-500' : 'bg-red-900 border-red-500'} flex items-center gap-3`;
+            toast.innerHTML = `<i class="ph ${type === 'success' ? 'ph-check-circle text-emerald-400' : 'ph-warning text-red-400'} text-xl"></i><span>${message}</span>`;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3500);
+        }
+
+        async function exportToExcel() {
+            const filtered = getFilteredData();
+            if (filtered.length === 0) return showToast('No hay datos para exportar', 'error');
+
+            const wb = new ExcelJS.Workbook();
+            const sheet = wb.addWorksheet("REGISTROS");
+            sheet.columns = [
+                { header: 'ID', key: 'id', width: 15 }, { header: 'Fecha', key: 'fecha_registro', width: 15 },
+                { header: 'Marca Temporal', key: 'timestamp', width: 22 }, { header: 'Especialista', key: 'especialista', width: 30 },
+                { header: 'Sector', key: 'sector', width: 30 }, { header: 'Entidad', key: 'entidad', width: 30 },
+                { header: 'Nivel', key: 'nivel_aplicacion', width: 45 }, { header: 'Detalle', key: 'detalle', width: 40 }
+            ];
+
+            // Estilos Profesionales para el Encabezado
+            sheet.getRow(1).eachCell(cell => {
+                cell.font = { bold: true, color: { argb: 'FFFFFF' }, name: 'Segoe UI', size: 10 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F382C' } };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                // Borde oscuro elegante para el encabezado
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    right: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    bottom: { style: 'medium', color: { argb: 'FF475569' } } 
+                };
+            });
+
+            // Estilos y Bordes finos para las filas de datos
+            filtered.forEach((item, index) => {
+                const row = sheet.addRow({ ...item, fecha_registro: formatearFecha(item.fecha_registro) });
+                
+                row.eachCell((cell, colNumber) => {
+                    cell.font = { name: 'Segoe UI', size: 10 };
+                    cell.numFmt = '@';
+                    
+                    // Bordes finos color gris pizarra (Slate-300) para aspecto profesional
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+
+                    // Sombreado alterno (Zebra striping)
+                    if (index % 2 === 1) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                    }
+                    
+                    // Alinear al centro columnas de ID y Fecha
+                    if (colNumber === 1 || colNumber === 2 || colNumber === 3) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else {
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    }
+                });
+            });
+
+            const buffer = await wb.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `IncorporacionEG_${new Date().toISOString().substring(0, 10)}.xlsx`);
+        }
+
+        function exportToCSV() {
+            let csv = 'ID,Fecha,Especialista,Sector,Entidad\n';
+            getFilteredData().forEach(r => csv += `"${r.id}","${formatearFecha(r.fecha_registro)}","${r.especialista}","${r.sector}","${r.entidad}"\n`);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            a.download = `Data.csv`; a.click();
+        }
+    </script>
+</body>
+</html>

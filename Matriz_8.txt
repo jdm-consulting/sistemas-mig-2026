@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Monitoreo TEG - Consolidado de Actividades (8 Módulos)</title>
+    
+    <!-- Librerías Externas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <!-- Motor de Sincronización en Tiempo Real de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --primary: #5346ea;
+            --primary-dark: #3b30b4;
+            --primary-light: #2563eb;
+            --secondary: #2ed573;
+            --bg: #f4f6f9;
+            --card-bg: #ffffff;
+            --text: #2f3542;
+            --border: #e1e8ef;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; padding: 24px; }
+
+        header {
+            background-color: var(--card-bg); padding: 20px 30px; border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 24px; border-left: 6px solid var(--primary);
+        }
+        header h2 { font-size: 1.4rem; font-weight: 600; color: var(--primary); }
+
+        .badge-status { background: #dcfce7; color: #15803d; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.8rem; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+        .nav-tabs { display: flex; gap: 12px; margin-bottom: 24px; background: white; border-bottom: 1px solid var(--border); padding: 10px 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .nav-btn { padding: 12px 24px; background: none; border: 1px solid var(--border); border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; color: #475569; }
+        .nav-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 4px rgba(83,70,234,0.2); }
+        .nav-btn:hover:not(.active) { color: var(--primary-dark); border-color: var(--primary-light); }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        .module-card { background: var(--card-bg); border-radius: 10px; border: 1px solid var(--border); padding: 25px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .module-card h3 { color: var(--primary); margin-bottom: 20px; font-size: 1.1rem; border-bottom: 2px solid var(--border); padding-bottom: 8px; font-weight: 700; }
+
+        .row-group { margin-bottom: 15px; }
+        .row-group:last-child { margin-bottom: 0; }
+
+        .grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+
+        @media (max-width: 900px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: #57606f; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; background-color: #fff;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 3px rgba(83, 70, 234, 0.15);
+        }
+        .form-group input[readonly] { background: #f1f5f9; font-weight: 700; color: var(--primary); border-color: var(--border); }
+        
+        .input-pct-wrapper { display: flex; align-items: center; gap: 8px; }
+        .input-pct-wrapper input { flex: 1; }
+        .input-pct-wrapper span { font-weight: 700; color: #475569; font-size: 0.95rem; }
+
+        input[type="file"] { padding: 7px 10px; font-size: 0.85rem; background: #f8fafc; cursor: pointer; }
+
+        .btn-bar { display: flex; justify-content: flex-end; gap: 14px; margin-top: 20px; }
+        .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-save:hover { background: var(--primary-dark); }
+        .btn-update { background: #f59e0b; color: white; display: none; }
+        .btn-update:hover { background: #d97706; }
+        .btn-clear { background: #e2e8f0; color: #1e293b; }
+        .btn-clear:hover { background: #cbd5e1; }
+        .btn-excel { background: var(--secondary); color: white; font-weight: bold; }
+        .btn-excel:hover { background: #26af5f; }
+
+        .action-btns { display: flex; gap: 8px; align-items: center; justify-content: center; }
+        .btn-icon {
+            background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .btn-icon-view { color: var(--primary); }
+        .btn-icon-view:hover { background: #eef2ff; border-color: var(--primary); }
+        .btn-icon-edit { color: var(--warning); }
+        .btn-icon-edit:hover { background: #fef3c7; border-color: var(--warning); }
+        .btn-icon-delete { color: var(--danger); }
+        .btn-icon-delete:hover { background: #fee2e2; border-color: var(--danger); }
+
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        th { background: #f8fafc; font-weight: 600; color: #475569; white-space: nowrap; }
+        tr:hover { background-color: #f1f5f9; }
+
+        .tag { padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .tag-si { background: #dcfce7; color: #166534; }
+        .tag-no { background: #fee2e2; color: #991b1b; }
+
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .kpi-box { background: white; padding: 20px; border-radius: 10px; border: 1px solid var(--border); text-align: center; }
+        .kpi-box div:first-child { font-size: 0.85rem; color: #747d8c; margin-bottom: 10px; }
+        .kpi-val { font-size: 1.8rem; font-weight: bold; color: var(--primary); }
+        
+        .chart-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .chart-box { background: white; padding: 20px; border-radius: 10px; border: 1px solid var(--border); position: relative; height: 300px; }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999; }
+        .modal-card { background:white; width:90%; max-width:750px; max-height:85vh; overflow-y:auto; padding:30px; border-radius:10px; position: relative; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h2>SISTEMA DE MONITOREO TEG (8 MÓDULOS)</h2>
+            <small style="color:#747d8c">Transversalización del Enfoque de Género - Consolidado Integral Nube</small>
+        </div>
+        <div class="badge-status"><div class="dot"></div> En Línea / Sincronizado en Firebase</div>
+    </header>
+
+    <nav class="nav-tabs">
+        <button class="nav-btn active" onclick="switchTab('tab-registro')">📝 Registro de Ficha Completa</button>
+        <button class="nav-btn" onclick="switchTab('tab-tabla')">📋 Registros y Monitoreo</button>
+        <button class="nav-btn" onclick="switchTab('tab-dashboard')">📊 Dashboard Analítico</button>
+    </nav>
+
+    <!-- PESTAÑA 1: FORMULARIO DE REGISTRO -->
+    <section id="tab-registro" class="tab-pane active">
+        <form id="formEstructura">
+            <!-- MÓDULO 1 -->
+            <div class="module-card">
+                <h3>Módulo 1: Datos Generales</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group">
+                        <label>Especialista *</label>
+                        <select id="m1_especialista" required>
+                            <option value="">-- Seleccione Especialista --</option>
+                            <option value="ALE SANCHEZ, ISABEL">ALE SANCHEZ, ISABEL</option>
+                            <option value="ALEGRE ALMIRENA, SOLEDAD">ALEGRE ALMIRENA, SOLEDAD</option>
+                            <option value="APARCANA BRAVO, FLOR">APARCANA BRAVO, FLOR</option>
+                            <option value="ARAUJO BOID, FRANCISCA">ARAUJO BOID, FRANCISCA</option>
+                            <option value="CORNEJO LOBO, REBECA">CORNEJO LOBO, REBECA</option>
+                            <option value="SICHEZ VALLE, ROSARIO">SICHEZ VALLE, ROSARIO</option>
+                            <option value="VALDIVIA RAMIREZ, FERNANDO">VALDIVIA RAMIREZ, FERNANDO</option>
+                            <option value="VELASQUEZ ALVARADO, DORIS">VELASQUEZ ALVARADO, DORIS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de Registro</label>
+                        <input type="date" id="m1_fechaReg">
+                    </div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group">
+                        <label>Sector *</label>
+                        <select id="m1_sector" onchange="cargarEntidades()" required>
+                            <option value="">-- Seleccione Sector --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Entidad (Dependiente) *</label>
+                        <select id="m1_entidad" required disabled>
+                            <option value="">-- Seleccione Sector Primero --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>MIG</label><select id="m1_mig"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Entidad Priorizada</label><select id="m1_entPriorizada"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Tipo de Evento</label><select id="m1_tipoEvento" onchange="generarCodigos()"><option value="ACCIÓN">ACCIÓN</option><option value="ACTIVIDAD">ACTIVIDAD</option></select></div>
+                    <div class="form-group"><label>N° Orden del Evento</label><input type="text" id="m1_nroOrden" readonly></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>Código del Evento</label><input type="text" id="m1_codEvento" readonly></div>
+                    <div class="form-group"><label>Denominación del Evento (Máx 100 char)</label><input type="text" maxlength="100" id="m1_denomEvento" placeholder="Ingrese denominación..."></div>
+                    <div class="form-group"><label>Unidad de Medida</label><select id="m1_unidadMedida"><option value="UM1">UM1</option><option value="UM2">UM2</option><option value="UM3">UM3</option><option value="UM4">UM4</option><option value="UM5">UM5</option></select></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Tipo de Intervención</label><select id="m1_tipoIntervencion"><option value="1. Asistencia Técnica - Protocolos">1. Asistencia Técnica - Protocolos</option><option value="2. Asistencia Técnica - Asesoría Especializada">2. Asistencia Técnica - Asesoría Especializada</option><option value="3. Proceso de Capacitación - No AT">3. Proceso de Capacitación - No AT</option><option value="4. Otras Asistencias Técnicas - Otras Actividades">4. Otras Asistencias Técnicas - Otras Actividades</option><option value="5. Asistencia Técnica - Plan de Actividades MIG">5. Asistencia Técnica - Plan de Actividades MIG</option></select></div>
+                    <div class="form-group"><label>Fecha Intervención</label><input type="date" id="m1_fechaIntervencion"></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Nombre Documento (Máx 30 char)</label><input type="text" maxlength="30" id="m1_nomDoc" placeholder="Ej: Informe N° 001-2026"></div>
+                    <div class="form-group"><label>Evidencia (Adjuntar PDF)</label><input type="file" id="m1_evidencia" accept=".pdf"></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 2 -->
+            <div class="module-card">
+                <h3>Módulo 2: Asistencia Técnica - Elaboración del Plan de Actividad del MIG</h3>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>Proceso Acompañamiento (1-20)</label><input type="number" min="0" max="20" id="m2_procAcomp" value="0" onchange="calcM2()"></div>
+                    <div class="form-group"><label>Acción Acompañamiento (1-20)</label><input type="number" min="0" max="20" id="m2_accAcomp" value="0" onchange="calcM2()"></div>
+                    <div class="form-group"><label>Acción Capacitación (1-20)</label><input type="number" min="0" max="20" id="m2_accCapac" value="0" onchange="calcM2()"></div>
+                    <div class="form-group"><label>N° de Horas (1-20)</label><input type="number" min="0" max="20" id="m2_nroHoras" value="0"></div>
+                </div>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>Asesoría Técnica (1-20)</label><input type="number" min="0" max="20" id="m2_asesoria" value="0" onchange="calcM2()"></div>
+                    <div class="form-group"><label>Participantes Hombres</label><select id="m2_hombres" onchange="calcM2()"></select></div>
+                    <div class="form-group"><label>Participantes Mujeres</label><select id="m2_mujeres" onchange="calcM2()"></select></div>
+                    <div class="form-group"><label>Total Participantes (Calc)</label><input type="number" id="m2_totalPart" readonly></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Total AT por Actividad (Calc)</label><input type="number" id="m2_totalAT" readonly></div>
+                    <div class="form-group"><label>Asistencias Mínimas Cumplidas</label><input type="text" id="m2_cumplidas" readonly></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 3 -->
+            <div class="module-card">
+                <h3>Módulo 3: Asistencia Técnica - Servicio de Protocolos</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Servicio de Protocolo</label><select id="m3_servicio"><option value="1. Incorporación del EG en Sistemas Administrativos">1. Incorporación del EG en Sistemas Administrativos</option><option value="2. Incorporación del EG en la Provisión de Bienes y Servicios">2. Incorporación del EG en la Provisión de Bienes y Servicios</option></select></div>
+                    <div class="form-group"><label>Tipo de Sistema Administrativo</label><select id="m3_sistema"><option value="1. Planeamiento Estratégico">1. Planeamiento Estratégico</option><option value="2. Programación Multianual y Gestión de Inversiones">2. Programación Multianual y Gestión de Inversiones</option><option value="3. Presupuesto Público">3. Presupuesto Público</option><option value="4. Gestión de los Recursos Humanos">4. Gestión de los Recursos Humanos</option></select></div>
+                </div>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>Acción Acompañamiento</label><input type="number" min="0" max="20" id="m3_accAcomp" value="0" onchange="calcM3()"></div>
+                    <div class="form-group"><label>Acción Capacitación</label><input type="number" min="0" max="20" id="m3_accCapac" value="0" onchange="calcM3()"></div>
+                    <div class="form-group"><label>Asesoría Técnica</label><input type="number" min="0" max="20" id="m3_asesoria" value="0" onchange="calcM3()"></div>
+                    <div class="form-group"><label>Total AT M3 (Calc)</label><input type="number" id="m3_totalAT" readonly></div>
+                </div>
+                <div class="row-group grid-1">
+                    <div class="form-group"><label>¿Culmina la Actividad?</label><select id="m3_culmina"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 4 -->
+            <div class="module-card">
+                <h3>Módulo 4: Otras Intervenciones</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Otras AT y Asesorías Especializadas</label><select id="m4_otrasAT"><option value="1. Asesoría Especializada">1. Asesoría Especializada</option><option value="2. Asistencia Técnica para informar alcances PIP">2. Asistencia Técnica para informar alcances PIP</option><option value="3. Asistencia Técnica para el seguimiento de la TEG">3. Asistencia Técnica para el seguimiento de la TEG</option></select></div>
+                    <div class="form-group"><label>¿Culmina la Actividad? (AT)</label><select id="m4_culminaAT"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>Procesos de Capacitación - No AT</label><select id="m4_procCapac"><option value="1. Charla">1. Charla</option><option value="2. Conferencia">2. Conferencia</option><option value="3. Curso">3. Curso</option><option value="4. Taller">4. Taller</option><option value="5. Otro">5. Otro</option></select></div>
+                    <div class="form-group"><label>N° de Horas (1-20)</label><input type="number" min="0" max="20" id="m4_horas" value="0"></div>
+                    <div class="form-group"><label>¿Culmina la Actividad? (Capacitación)</label><select id="m4_culminaCapac"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>Participantes Hombres</label><select id="m4_hombres" onchange="calcM4()"></select></div>
+                    <div class="form-group"><label>Participantes Mujeres</label><select id="m4_mujeres" onchange="calcM4()"></select></div>
+                    <div class="form-group"><label>Total Participantes (Calc)</label><input type="number" id="m4_totalPart" readonly></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Otras Actividades</label><select id="m4_otrasAct"><option value="1. Directiva">1. Directiva</option><option value="2. Evento">2. Evento</option><option value="3. Guía">3. Guía</option><option value="4. Lineamiento">4. Lineamiento</option><option value="5. Opinión Técnica">5. Opinión Técnica</option><option value="6. Protocolo">6. Protocolo</option><option value="7. Otro">7. Otro</option></select></div>
+                    <div class="form-group"><label>¿Culmina la Actividad? (Otras)</label><select id="m4_culminaOtras"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 5 -->
+            <div class="module-card">
+                <h3>Módulo 5: Aplicación de Herramientas</h3>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>¿Aplica Herramientas de Protocolo?</label><select id="m5_aplica"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Herramienta Aplicada</label><select id="m5_herramienta"><option value="1. Incorporación del EG en el Planeamiento y Presupuesto">1. Incorporación del EG en el Planeamiento y Presupuesto</option><option value="2. Incorporación del EG en las Inversiones">2. Incorporación del EG en las Inversiones</option><option value="3. Incorporación del EG en la Cultura Organizacional">3. Incorporación del EG en la Cultura Organizacional</option><option value="4. Incorporación del EG en la Provisión de Bienes y Servicios">4. Incorporación del EG en la Provisión de Bienes y Servicios</option></select></div>
+                    <div class="form-group"><label>Estado de la Aplicación</label><select id="m5_estado"><option value="1. No Iniciado">1. No Iniciado</option><option value="2. En Proceso">2. En Proceso</option><option value="3. Concluido">3. Concluido</option></select></div>
+                </div>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>🟢 Óptimo (1 al 50)</label><select id="m5_optimo" onchange="calcM5()"></select></div>
+                    <div class="form-group"><label>🟡 Regular (1 al 50)</label><select id="m5_regular" onchange="calcM5()"></select></div>
+                    <div class="form-group"><label>🔴 Deficiente (1 al 50)</label><select id="m5_deficiente" onchange="calcM5()"></select></div>
+                    <div class="form-group"><label>⚪ No Aplica (1 al 50)</label><select id="m5_noAplica"></select></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>Total de Preguntas</label><input type="number" id="m5_totalPreg" readonly></div>
+                    <div class="form-group"><label>Porcentaje (%)</label><input type="text" id="m5_pct" readonly></div>
+                    <div class="form-group"><label style="color:var(--primary); font-weight:700;">¿La entidad incorpora el enfoque de género? (>=60%)</label><input type="text" id="m5_incEG" readonly style="background:#fef08a; color:#854d0e; font-weight:800;"></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Indicador del Cuestionario (Bienes y Servicios)</label><select id="m5_indCuest"><option value="1. Indicador A">1. Indicador A</option><option value="2. Indicador B">2. Indicador B</option><option value="3. Indicador C">3. Indicador C</option><option value="4. Indicador D">4. Indicador D</option><option value="5. Indicador E">5. Indicador E</option></select></div>
+                    <div class="form-group"><label>¿La entidad incorpora enfoque de género en la producción de bienes y servicios?</label><select id="m5_incByS"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 6 -->
+            <div class="module-card">
+                <h3>Módulo 6: Encuesta de Estereotipo de Género</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Aplica Encuesta de Estereotipos</label><select id="m6_aplica"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>IG: % de servidoras/es con Estereotipos de Género</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ig" value="0"><span>%</span></div></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>IE1: % servidoras/es con Estereotipos (Ámbito privado y social)</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ie1" value="0"><span>%</span></div></div>
+                    <div class="form-group"><label>IE2: % servidoras/es con Estereotipos (Violencia basada en género)</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ie2" value="0"><span>%</span></div></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>IE3: % servidoras/es con Estereotipos (Ámbito laboral)</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ie3" value="0"><span>%</span></div></div>
+                    <div class="form-group"><label>IE4: % servidoras/es que identifican hostigamiento/discriminación</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ie4" value="0"><span>%</span></div></div>
+                    <div class="form-group"><label>IE5: % servidoras/es con conocimiento de conceptos sobre género</label><div class="input-pct-wrapper"><input type="number" min="0" max="100" id="m6_ie5" value="0"><span>%</span></div></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 7 -->
+            <div class="module-card">
+                <h3>Módulo 7: Lineamientos</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>Eje Temático</label><select id="m7_eje"><option value="I. DOCUMENTO E INSTRUMENTO DE GESTIÓN">I. DOCUMENTO E INSTRUMENTO DE GESTIÓN</option><option value="II. NORMATIVIDAD">II. NORMATIVIDAD</option><option value="III. PROCESO DE CAPACITACIÓN INTERNO O EXTERNO">III. PROCESO DE CAPACITACIÓN INTERNO O EXTERNO</option><option value="IV. COMUNICACIÓN INTERNA O EXTERNA">IV. COMUNICACIÓN INTERNA O EXTERNA</option><option value="V. SERVICIO INTERNO O EXTERNO">V. SERVICIO INTERNO O EXTERNO</option><option value="VI. HERRAMIENTA O INSTRUMENTO DE DIAGNÓSTICO O AUTODIAGNÓSTICO-DIAGNÓSTICO INTEGRAL">VI. HERRAMIENTA O INSTRUMENTO DE DIAGNÓSTICO O AUTODIAGNÓSTICO-DIAGNÓSTICO INTEGRAL</option><option value="VI A. DIAGNÓSTICO INTEGRAL">VI A. DIAGNÓSTICO INTEGRAL</option><option value="VII. ESTUDIO E INVESTIGACIÓN">VII. ESTUDIO E INVESTIGACIÓN</option><option value="VIII. SEGUIMIENTO Y EVALUACIÓN DEL PLAN DE ACTIVIDADES DEL MIG">VIII. SEGUIMIENTO Y EVALUACIÓN DEL PLAN DE ACTIVIDADES DEL MIG</option><option value="IX. INDICADORES ORIENTADOS A BRECHAS O DESIGUALDADES DE GÉNERO">IX. INDICADORES ORIENTADOS A BRECHAS O DESIGUALDADES DE GÉNERO</option><option value="X. OTRAS ACTIVIDADES">X. OTRAS ACTIVIDADES</option><option value="XI. MECANISMOS PARA LA IGUALDAD DE GÉNERO-UNIDAD DE ORGANIZACIÓN LINEAMIENTOS TEG">XI. MECANISMOS PARA LA IGUALDAD DE GÉNERO-UNIDAD DE ORGANIZACIÓN LINEAMIENTOS TEG</option></select></div>
+                    <div class="form-group"><label>¿Articulado con Lineamientos TEG?</label><select id="m7_articulado"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+                <div class="row-group grid-3">
+                    <div class="form-group"><label>Lineamiento 1: I EG en Planeamiento</label><select id="m7_l1"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Lineamiento 2: I EG en el SNPMI</label><select id="m7_l2"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Lineamiento 3: I EG en Provisión de ByS</label><select id="m7_l3"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+                <div class="row-group grid-4">
+                    <div class="form-group"><label>Lineamiento 4: I EG en Organización</label><select id="m7_l4"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Lineamiento 5: I EG en Presupuesto</label><select id="m7_l5"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Lineamiento 6: I EG en Seguimiento</label><select id="m7_l6"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Función Competencial</label><select id="m7_fc"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                </div>
+            </div>
+
+            <!-- MÓDULO 8 -->
+            <div class="module-card">
+                <h3>Módulo 8: Articulación con Otros Instrumentos</h3>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>¿Programada en el POI DTEG?</label><select id="m8_poiDteg"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Denominación de Actividad Operativa</label><input type="text" id="m8_denomActOp" value="Fortalecimiento de capacidades para la incorporación del enfoque de género en las competencias funcionales, sistemas administrativos y bienes y/o servicios de las entidades públicas del nivel nacional" readonly></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>¿Programada en Tarea POI?</label><select id="m8_tareaPoi"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Denominación de Tarea</label><select id="m8_denomTarea"><option value="T1. Brindar asistencia técnica para la formulación de planes de actividades de los Mecanismos de Igualdad de Género (MIG)...">T1. Formulación de planes de actividades del MIG</option><option value="T2. Brindar asistencia técnica para la realización de autodiagnósticos institucionales...">T2. Autodiagnósticos institucionales de la TEG</option><option value="T3. Brindar asistencia técnica para la incorporación del enfoque de género en los sistemas administrativos...">T3. EG en los sistemas administrativos</option><option value="T4. Brindar asistencia técnica para la incorporación del enfoque de género en la provisión de bienes y servicios...">T4. EG en la provisión de bienes y servicios</option><option value="T5. Brindar asistencia técnica para el seguimiento y reporte de la implementación de la TEG...">T5. Seguimiento y reporte TEG</option><option value="T6. Brindar asistencia técnica para la incorporación del enfoque de género en la función competencial...">T6. EG en función competencial</option><option value="T7. Brindar asistencia técnica para la validación de contenidos del curso en enfoque de género">T7. Validación de contenidos del curso</option><option value="Otro">Otro</option></select></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>¿Programada en Plan Asistencia Técnica?</label><select id="m8_progAT"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Denominación de la Actividad en el Plan de AT (Máx 150 char)</label><input type="text" maxlength="150" id="m8_denomPlanAT" placeholder="Ingrese denominación..."></div>
+                </div>
+                <div class="row-group grid-2">
+                    <div class="form-group"><label>¿Programada en Plan del MIG?</label><select id="m8_progMig"><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                    <div class="form-group"><label>Denominación de actividad en el Plan del MIG (Máx 50 char)</label><input type="text" maxlength="50" id="m8_denomPlanMig" placeholder="Ingrese denominación..."></div>
+                </div>
+            </div>
+
+            <div class="btn-bar">
+                <button type="button" class="btn btn-clear" onclick="limpiarFormulario()">Limpiar Formulario</button>
+                <button type="button" class="btn btn-update" id="btnModificar" onclick="guardarModificacion()">💾 Guardar Modificación en Nube</button>
+                <button type="submit" class="btn btn-save" id="btnGuardar">☁️ Guardar Ficha en Nube</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- PESTAÑA 2: TABLA Y MONITOREO -->
+    <section id="tab-tabla" class="tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <select id="filtroSector" onchange="renderizarTabla()" style="padding:10px; border-radius:6px; border:1px solid var(--border); max-width: 320px;">
+                <option value="">-- Todos los Sectores --</option>
+            </select>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn btn-clear" onclick="cargarDemoData()">Cargar Datos Ejemplo (Nube)</button>
+                <button class="btn btn-excel" onclick="exportarExcelNativo()">📗 Exportar Excel Nativo (.xlsx)</button>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Acciones</th><th>Código</th><th>Especialista</th><th>Sector</th><th>Entidad</th><th>Evidencia (PDF)</th><th>Total AT (M2)</th><th>Part. Total</th><th>Avance M5</th><th>Incorpora EG (>=60%)</th>
+                </tr>
+            </thead>
+            <tbody id="tablaCuerpo"></tbody>
+        </table>
+    </section>
+
+    <!-- PESTAÑA 3: DASHBOARD ANALÍTICO -->
+    <section id="tab-dashboard" class="tab-pane">
+        <div class="kpi-row">
+            <div class="kpi-box"><div>Total Fichas Registradas</div><div class="kpi-val" id="kpiTotal">0</div></div>
+            <div class="kpi-box"><div>Total Participantes Impactados</div><div class="kpi-val" id="kpiParticipantes">0</div></div>
+            <div class="kpi-box"><div>% Tasa Cumplimiento EG (>=60%)</div><div class="kpi-val" id="kpiEG">0%</div></div>
+        </div>
+        <div class="chart-container">
+            <div class="chart-box"><canvas id="chartSectores"></canvas></div>
+            <div class="chart-box"><canvas id="chartEG"></canvas></div>
+        </div>
+    </section>
+
+    <!-- MODAL VER DETALLE COMPLETO -->
+    <div id="modalVer" class="modal">
+        <div class="modal-card">
+            <h3 style="color:var(--primary); margin-bottom:15px; border-bottom:2px solid var(--border); padding-bottom:8px;">Detalle Registrado Completo (8 Módulos)</h3>
+            <div id="modalDetalleCuerpo" style="font-size:0.88rem; line-height:1.6;"></div>
+            <br>
+            <button class="btn btn-clear" onclick="cerrarModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        // ====> CREDENCIALES OFICIALES FIREBASE <====
+        const firebaseConfig = {
+          apiKey: "AIzaSyAmBVqUKz8jbE8qJ1Hq9cEGxlKtAeaNvhw",
+          authDomain: "normas-pig.firebaseapp.com",
+          databaseURL: "https://normas-pig-default-rtdb.firebaseio.com",
+          projectId: "normas-pig",
+          storageBucket: "normas-pig.firebasestorage.app",
+          messagingSenderId: "167883143923",
+          appId: "1:167883143923:web:3b4435ff8335404b47d586"
+        };
+
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const dbRef = firebase.database().ref('registros_teg_8modulos');
+
+        const sectoresData = {
+            "AMBIENTE": ["IGP", "IIAP", "INAIGEM", "OEFA", "SENACE", "SENAMHI", "SERNANP"],
+            "COMERCIO EXTERIOR Y TURISMO": ["CENFOTUR", "MINCETUR"],
+            "CULTURA": ["AGN", "BNP", "MINCUL", "PGE"],
+            "DEFENSA": ["CENEPRED", "INDECI", "MINDEF"],
+            "DESARROLLO AGRARIO Y RIEGO": ["INIA", "MIDAGRI", "SENASA"],
+            "DESARROLLO E INCLUSIÓN SOCIAL": ["FONCODES", "MIDIS", "PROGRAMA CONTIGO", "PROGRAMA CUNA MÁS", "PROGRAMA JUNTOS", "PROGRAMA PAIS", "PROGRAMA PENSIÓN 65", "PROGRAMA WASI MIKUNA"],
+            "ECONOMÍA Y FINANZAS": ["BANCO DE LA NACIÓN", "FONAFE", "MEF", "ONP", "OSCE", "PERÚ COMPRAS", "PROINVERSION", "SMV", "SUNAT"],
+            "EDUCACIÓN": ["IPD", "MINEDU", "SINEACE", "SUNEDU"],
+            "ENERGÍA Y MINAS": ["INGEMMET", "IPEN", "MINEM"],
+            "INTERIOR": ["MIGRACIONES", "MININTER", "SALUDPOL", "SUCAMEC"],
+            "JUSTICIA Y DERECHOS HUMANOS": ["INPE", "MINJUSDH", "SUNARP"],
+            "MUJER Y POBLACIONES VULNERABLES": ["CONADIS", "INABIF", "MIMP", "PROGRAMA WARMI ÑAN"],
+            "OCAS": ["CONTRALORÍA GENERAL DE LA REPÚBLICA", "DEFENSORÍA DEL PUEBLO", "JUNTA NACIONAL DE JUSTICIA", "JURADO NACIONAL DE ELECCIONES", "MINISTERIO PÚBLICO - FISCALÍA DE LA NACIÓN", "OFICINA NACIONAL DE PROCESOS ELELECCIONES", "REGISTRO NACIONAL DE IDENTIFICACIÓN Y ESTADO CIVIL"],
+            "PODER DEL ESTADO": ["PODER JUDICIAL"],
+            "PRESIDENCIA DEL CONSEJO DE MINISTROS": ["ANIN", "CEPLAN", "CONCYTEC", "DEVIDA", "DINI", "INDECOPI", "INEI", "OSINERGMIN", "OSINFOR", "OSIPTEL", "OSITRAN", "PCM", "SERVIR", "SUNASS"],
+            "PRODUCCIÓN": ["FONDEPES", "IMARPE", "INACAL", "ITP", "PRODUCE", "SANIPES"],
+            "RELACIONES EXTERIORES": ["APCI", "RREE"],
+            "SALUD": ["INEN", "SIS", "SUSALUD"],
+            "TRABAJO Y PROMOCIÓN DEL EMPLEO": ["ESSALUD", "MTPE", "SUNAFIL"],
+            "TRANSPORTES Y COMUNICACIONES": ["ATU", "MTC", "PROVIAS DESCENTRALIZADO", "PROVIAS NACIONAL", "SUTRAN"],
+            "VIVIENDA, CONSTRUCCIÓN Y SANEAMIENTO": ["COFOPRI", "MVCS", "OTASS", "SBN", "SEDAPAL", "SUNASS"]
+        };
+
+        let db = [];
+        let chart1, chart2;
+        let editCloudKey = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('m1_fechaReg').value = formatearFecha(new Date());
+            poblarSectores();
+            poblarDropdownsNumericos();
+            initDashboard();
+
+            // ESCUCHA FIREBASE EN TIEMPO REAL
+            dbRef.on('value', (snapshot) => {
+                const temp = [];
+                snapshot.forEach(child => {
+                    let item = child.val();
+                    item.cloudId = child.key;
+                    temp.push(item);
+                });
+                db = temp; // Mantenemos el orden cronológico para generar códigos correctos
+                
+                generarCodigos();
+                renderizarTabla();
+                actualizarDashboard();
+            });
+        });
+
+        function formatearFecha(fecha) {
+            const date = new Date(fecha);
+            const dia = String(date.getDate()).padStart(2, '0');
+            const mes = String(date.getMonth() + 1).padStart(2, '0');
+            const anio = date.getFullYear();
+            return `${anio}-${mes}-${dia}`;
+        }
+        
+        function formatFechaExcel(fechaIso) {
+            if (!fechaIso || fechaIso === 'N/A') return fechaIso;
+            const partes = fechaIso.split('-');
+            if (partes.length !== 3) return fechaIso;
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        function poblarDropdownsNumericos() {
+            const idsM5 = ['m5_optimo', 'm5_regular', 'm5_deficiente', 'm5_noAplica'];
+            idsM5.forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '';
+                for (let i = 0; i <= 50; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i; opt.textContent = i; select.appendChild(opt);
+                }
+            });
+
+            const idsPart100 = ['m2_hombres', 'm2_mujeres', 'm4_hombres', 'm4_mujeres'];
+            idsPart100.forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '';
+                for (let i = 0; i <= 100; i++) {
+                    const opt = document.createElement('option');
+                    opt.value = i; opt.textContent = i; select.appendChild(opt);
+                }
+            });
+        }
+
+        function poblarSectores() {
+            const selectForm = document.getElementById('m1_sector');
+            const selectFiltro = document.getElementById('filtroSector');
+            selectForm.innerHTML = '<option value="">-- Seleccione Sector --</option>';
+            selectFiltro.innerHTML = '<option value="">-- Todos los Sectores --</option>';
+            Object.keys(sectoresData).sort().forEach(sec => {
+                selectForm.appendChild(new Option(sec, sec));
+                selectFiltro.appendChild(new Option(sec, sec));
+            });
+        }
+
+        function cargarEntidades() {
+            const sectorSel = document.getElementById('m1_sector').value;
+            const selectEntidad = document.getElementById('m1_entidad');
+            selectEntidad.innerHTML = '<option value="">-- Seleccione Entidad --</option>';
+            if (sectorSel && sectoresData[sectorSel]) {
+                selectEntidad.disabled = false;
+                sectoresData[sectorSel].forEach(ent => selectEntidad.appendChild(new Option(ent, ent)));
+            } else {
+                selectEntidad.disabled = true;
+            }
+        }
+
+        function switchTab(id) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+            if (id === 'tab-dashboard') actualizarDashboard();
+        }
+
+        function generarCodigos() {
+            if (editCloudKey) return; // No generar si estamos editando
+            const num = db.length + 1; 
+            const tipo = document.getElementById('m1_tipoEvento').value;
+            const prefijo = tipo === 'ACCIÓN' ? 'ACC' : 'ACT';
+            
+            document.getElementById('m1_nroOrden').value = String(num).padStart(3, '0');
+            document.getElementById('m1_codEvento').value = `EVT-${prefijo}-2026-${String(num).padStart(4, '0')}`;
+        }
+
+        function calcM2() {
+            const acomp = parseInt(document.getElementById('m2_accAcomp').value) || 0;
+            const capac = parseInt(document.getElementById('m2_accCapac').value) || 0;
+            const ases = parseInt(document.getElementById('m2_asesoria').value) || 0;
+            const h = parseInt(document.getElementById('m2_hombres').value) || 0;
+            const m = parseInt(document.getElementById('m2_mujeres').value) || 0;
+            const totalAT = acomp + capac + ases;
+            document.getElementById('m2_totalAT').value = totalAT;
+            document.getElementById('m2_totalPart').value = h + m;
+            document.getElementById('m2_cumplidas').value = totalAT >= 1 ? 'SI' : 'NO';
+        }
+
+        function calcM3() {
+            const acomp = parseInt(document.getElementById('m3_accAcomp').value) || 0;
+            const capac = parseInt(document.getElementById('m3_accCapac').value) || 0;
+            const ases = parseInt(document.getElementById('m3_asesoria').value) || 0;
+            document.getElementById('m3_totalAT').value = acomp + capac + ases;
+        }
+
+        function calcM4() {
+            const h = parseInt(document.getElementById('m4_hombres').value) || 0;
+            const m = parseInt(document.getElementById('m4_mujeres').value) || 0;
+            document.getElementById('m4_totalPart').value = h + m;
+        }
+
+        function calcM5() {
+            const opt = parseInt(document.getElementById('m5_optimo').value) || 0;
+            const reg = parseInt(document.getElementById('m5_regular').value) || 0;
+            const def = parseInt(document.getElementById('m5_deficiente').value) || 0;
+            const total = opt + reg + def;
+            document.getElementById('m5_totalPreg').value = total;
+            const pctNum = total > 0 ? ((opt + reg) * 100 / total) : 0;
+            document.getElementById('m5_pct').value = `${pctNum.toFixed(1)}%`;
+            document.getElementById('m5_incEG').value = pctNum >= 60 ? 'SI' : 'NO';
+        }
+
+        document.getElementById('formEstructura').onsubmit = function(e) {
+            e.preventDefault();
+            const evidenciaInput = document.getElementById('m1_evidencia');
+            const nombreEvidencia = evidenciaInput.files && evidenciaInput.files[0] ? evidenciaInput.files[0].name : 'Sin evidencia';
+
+            const registro = {
+                cod: document.getElementById('m1_codEvento').value,
+                m1_especialista: document.getElementById('m1_especialista').value,
+                m1_fechaReg: document.getElementById('m1_fechaReg').value,
+                m1_sector: document.getElementById('m1_sector').value,
+                m1_entidad: document.getElementById('m1_entidad').value,
+                m1_mig: document.getElementById('m1_mig').value,
+                m1_entPriorizada: document.getElementById('m1_entPriorizada').value,
+                m1_tipoEvento: document.getElementById('m1_tipoEvento').value,
+                m1_nroOrden: document.getElementById('m1_nroOrden').value,
+                m1_denomEvento: document.getElementById('m1_denomEvento').value || 'N/A',
+                m1_unidadMedida: document.getElementById('m1_unidadMedida').value,
+                m1_tipoIntervencion: document.getElementById('m1_tipoIntervencion').value,
+                m1_fechaIntervencion: document.getElementById('m1_fechaIntervencion').value || 'N/A',
+                m1_nomDoc: document.getElementById('m1_nomDoc').value || 'N/A',
+                m1_evidencia: nombreEvidencia,
+                m2_procAcomp: document.getElementById('m2_procAcomp').value,
+                m2_accAcomp: document.getElementById('m2_accAcomp').value,
+                m2_accCapac: document.getElementById('m2_accCapac').value,
+                m2_nroHoras: document.getElementById('m2_nroHoras').value,
+                m2_asesoria: document.getElementById('m2_asesoria').value,
+                m2_hombres: document.getElementById('m2_hombres').value,
+                m2_mujeres: document.getElementById('m2_mujeres').value,
+                m2_totalPart: document.getElementById('m2_totalPart').value,
+                m2_totalAT: document.getElementById('m2_totalAT').value,
+                m2_cumplidas: document.getElementById('m2_cumplidas').value,
+                m3_servicio: document.getElementById('m3_servicio').value,
+                m3_sistema: document.getElementById('m3_sistema').value,
+                m3_accAcomp: document.getElementById('m3_accAcomp').value,
+                m3_accCapac: document.getElementById('m3_accCapac').value,
+                m3_asesoria: document.getElementById('m3_asesoria').value,
+                m3_totalAT: document.getElementById('m3_totalAT').value,
+                m3_culmina: document.getElementById('m3_culmina').value,
+                m4_otrasAT: document.getElementById('m4_otrasAT').value,
+                m4_culminaAT: document.getElementById('m4_culminaAT').value,
+                m4_procCapac: document.getElementById('m4_procCapac').value,
+                m4_horas: document.getElementById('m4_horas').value,
+                m4_culminaCapac: document.getElementById('m4_culminaCapac').value,
+                m4_hombres: document.getElementById('m4_hombres').value,
+                m4_mujeres: document.getElementById('m4_mujeres').value,
+                m4_totalPart: document.getElementById('m4_totalPart').value,
+                m4_otrasAct: document.getElementById('m4_otrasAct').value,
+                m4_culminaOtras: document.getElementById('m4_culminaOtras').value,
+                m5_aplica: document.getElementById('m5_aplica').value,
+                m5_herramienta: document.getElementById('m5_herramienta').value,
+                m5_estado: document.getElementById('m5_estado').value,
+                m5_optimo: document.getElementById('m5_optimo').value,
+                m5_regular: document.getElementById('m5_regular').value,
+                m5_deficiente: document.getElementById('m5_deficiente').value,
+                m5_noAplica: document.getElementById('m5_noAplica').value,
+                m5_totalPreg: document.getElementById('m5_totalPreg').value,
+                m5_pct: document.getElementById('m5_pct').value,
+                m5_incEG: document.getElementById('m5_incEG').value,
+                m5_indCuest: document.getElementById('m5_indCuest').value,
+                m5_incByS: document.getElementById('m5_incByS').value,
+                m6_aplica: document.getElementById('m6_aplica').value,
+                m6_ig: document.getElementById('m6_ig').value.replace('%','') + '%',
+                m6_ie1: document.getElementById('m6_ie1').value.replace('%','') + '%',
+                m6_ie2: document.getElementById('m6_ie2').value.replace('%','') + '%',
+                m6_ie3: document.getElementById('m6_ie3').value.replace('%','') + '%',
+                m6_ie4: document.getElementById('m6_ie4').value.replace('%','') + '%',
+                m6_ie5: document.getElementById('m6_ie5').value.replace('%','') + '%',
+                m7_eje: document.getElementById('m7_eje').value,
+                m7_articulado: document.getElementById('m7_articulado').value,
+                m7_l1: document.getElementById('m7_l1').value,
+                m7_l2: document.getElementById('m7_l2').value,
+                m7_l3: document.getElementById('m7_l3').value,
+                m7_l4: document.getElementById('m7_l4').value,
+                m7_l5: document.getElementById('m7_l5').value,
+                m7_l6: document.getElementById('m7_l6').value,
+                m7_fc: document.getElementById('m7_fc').value,
+                m8_poiDteg: document.getElementById('m8_poiDteg').value,
+                m8_denomActOp: document.getElementById('m8_denomActOp').value || 'N/A',
+                m8_tareaPoi: document.getElementById('m8_tareaPoi').value,
+                m8_denomTarea: document.getElementById('m8_denomTarea').value,
+                m8_progAT: document.getElementById('m8_progAT').value,
+                m8_denomPlanAT: document.getElementById('m8_denomPlanAT').value || 'N/A',
+                m8_progMig: document.getElementById('m8_progMig').value,
+                m8_denomPlanMig: document.getElementById('m8_denomPlanMig').value || 'N/A'
+            };
+
+            dbRef.push(registro).then(() => {
+                alert('¡Ficha registrada en la nube correctamente!');
+                limpiarFormulario();
+            }).catch(err => alert("Error al guardar: " + err));
+        };
+        
+        function cargarRegistroParaModificar(cloudId) {
+            const item = db.find(r => r.cloudId === cloudId);
+            if (!item) return;
+            
+            editCloudKey = cloudId;
+            
+            document.getElementById('m1_especialista').value = item.m1_especialista;
+            document.getElementById('m1_fechaReg').value = item.m1_fechaReg;
+            document.getElementById('m1_sector').value = item.m1_sector;
+            cargarEntidades();
+            document.getElementById('m1_entidad').value = item.m1_entidad;
+            document.getElementById('m1_mig').value = item.m1_mig;
+            document.getElementById('m1_entPriorizada').value = item.m1_entPriorizada;
+            document.getElementById('m1_tipoEvento').value = item.m1_tipoEvento;
+            document.getElementById('m1_nroOrden').value = item.m1_nroOrden;
+            document.getElementById('m1_codEvento').value = item.cod;
+            document.getElementById('m1_denomEvento').value = item.m1_denomEvento !== 'N/A' ? item.m1_denomEvento : '';
+            document.getElementById('m1_unidadMedida').value = item.m1_unidadMedida;
+            document.getElementById('m1_tipoIntervencion').value = item.m1_tipoIntervencion;
+            document.getElementById('m1_fechaIntervencion').value = item.m1_fechaIntervencion !== 'N/A' ? item.m1_fechaIntervencion : '';
+            document.getElementById('m1_nomDoc').value = item.m1_nomDoc !== 'N/A' ? item.m1_nomDoc : '';
+            
+            document.getElementById('m2_procAcomp').value = item.m2_procAcomp;
+            document.getElementById('m2_accAcomp').value = item.m2_accAcomp;
+            document.getElementById('m2_accCapac').value = item.m2_accCapac;
+            document.getElementById('m2_nroHoras').value = item.m2_nroHoras;
+            document.getElementById('m2_asesoria').value = item.m2_asesoria;
+            document.getElementById('m2_hombres').value = item.m2_hombres;
+            document.getElementById('m2_mujeres').value = item.m2_mujeres;
+            
+            document.getElementById('m3_servicio').value = item.m3_servicio;
+            document.getElementById('m3_sistema').value = item.m3_sistema;
+            document.getElementById('m3_accAcomp').value = item.m3_accAcomp;
+            document.getElementById('m3_accCapac').value = item.m3_accCapac;
+            document.getElementById('m3_asesoria').value = item.m3_asesoria;
+            document.getElementById('m3_culmina').value = item.m3_culmina;
+            
+            document.getElementById('m4_otrasAT').value = item.m4_otrasAT;
+            document.getElementById('m4_culminaAT').value = item.m4_culminaAT;
+            document.getElementById('m4_procCapac').value = item.m4_procCapac;
+            document.getElementById('m4_horas').value = item.m4_horas;
+            document.getElementById('m4_culminaCapac').value = item.m4_culminaCapac;
+            document.getElementById('m4_hombres').value = item.m4_hombres;
+            document.getElementById('m4_mujeres').value = item.m4_mujeres;
+            document.getElementById('m4_otrasAct').value = item.m4_otrasAct;
+            document.getElementById('m4_culminaOtras').value = item.m4_culminaOtras;
+            
+            document.getElementById('m5_aplica').value = item.m5_aplica;
+            document.getElementById('m5_herramienta').value = item.m5_herramienta;
+            document.getElementById('m5_estado').value = item.m5_estado;
+            document.getElementById('m5_optimo').value = item.m5_optimo;
+            document.getElementById('m5_regular').value = item.m5_regular;
+            document.getElementById('m5_deficiente').value = item.m5_deficiente;
+            document.getElementById('m5_noAplica').value = item.m5_noAplica;
+            document.getElementById('m5_indCuest').value = item.m5_indCuest;
+            document.getElementById('m5_incByS').value = item.m5_incByS;
+            
+            document.getElementById('m6_aplica').value = item.m6_aplica;
+            document.getElementById('m6_ig').value = item.m6_ig.replace('%', '');
+            document.getElementById('m6_ie1').value = item.m6_ie1.replace('%', '');
+            document.getElementById('m6_ie2').value = item.m6_ie2.replace('%', '');
+            document.getElementById('m6_ie3').value = item.m6_ie3.replace('%', '');
+            document.getElementById('m6_ie4').value = item.m6_ie4.replace('%', '');
+            document.getElementById('m6_ie5').value = item.m6_ie5.replace('%', '');
+            
+            document.getElementById('m7_eje').value = item.m7_eje;
+            document.getElementById('m7_articulado').value = item.m7_articulado;
+            document.getElementById('m7_l1').value = item.m7_l1;
+            document.getElementById('m7_l2').value = item.m7_l2;
+            document.getElementById('m7_l3').value = item.m7_l3;
+            document.getElementById('m7_l4').value = item.m7_l4;
+            document.getElementById('m7_l5').value = item.m7_l5;
+            document.getElementById('m7_l6').value = item.m7_l6;
+            document.getElementById('m7_fc').value = item.m7_fc;
+            
+            document.getElementById('m8_poiDteg').value = item.m8_poiDteg;
+            document.getElementById('m8_denomActOp').value = item.m8_denomActOp !== 'N/A' ? item.m8_denomActOp : '';
+            document.getElementById('m8_tareaPoi').value = item.m8_tareaPoi;
+            document.getElementById('m8_denomTarea').value = item.m8_denomTarea;
+            document.getElementById('m8_progAT').value = item.m8_progAT;
+            document.getElementById('m8_denomPlanAT').value = item.m8_denomPlanAT !== 'N/A' ? item.m8_denomPlanAT : '';
+            document.getElementById('m8_progMig').value = item.m8_progMig;
+            document.getElementById('m8_denomPlanMig').value = item.m8_denomPlanMig !== 'N/A' ? item.m8_denomPlanMig : '';
+            
+            calcM2(); calcM3(); calcM4(); calcM5();
+            
+            document.getElementById('btnGuardar').style.display = 'none';
+            document.getElementById('btnModificar').style.display = 'inline-flex';
+            
+            switchTab('tab-registro');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function guardarModificacion() {
+            if (!editCloudKey) return;
+            
+            const itemOriginal = db.find(r => r.cloudId === editCloudKey);
+            const evidenciaInput = document.getElementById('m1_evidencia');
+            let nombreEvidencia = itemOriginal.m1_evidencia; 
+            if (evidenciaInput.files && evidenciaInput.files[0]) {
+                nombreEvidencia = evidenciaInput.files[0].name;
+            }
+
+            const registroEditado = {
+                cod: itemOriginal.cod, // Se mantiene el código original
+                m1_especialista: document.getElementById('m1_especialista').value,
+                m1_fechaReg: document.getElementById('m1_fechaReg').value,
+                m1_sector: document.getElementById('m1_sector').value,
+                m1_entidad: document.getElementById('m1_entidad').value,
+                m1_mig: document.getElementById('m1_mig').value,
+                m1_entPriorizada: document.getElementById('m1_entPriorizada').value,
+                m1_tipoEvento: document.getElementById('m1_tipoEvento').value,
+                m1_nroOrden: itemOriginal.m1_nroOrden, // Se mantiene el número de orden original
+                m1_denomEvento: document.getElementById('m1_denomEvento').value || 'N/A',
+                m1_unidadMedida: document.getElementById('m1_unidadMedida').value,
+                m1_tipoIntervencion: document.getElementById('m1_tipoIntervencion').value,
+                m1_fechaIntervencion: document.getElementById('m1_fechaIntervencion').value || 'N/A',
+                m1_nomDoc: document.getElementById('m1_nomDoc').value || 'N/A',
+                m1_evidencia: nombreEvidencia,
+                m2_procAcomp: document.getElementById('m2_procAcomp').value,
+                m2_accAcomp: document.getElementById('m2_accAcomp').value,
+                m2_accCapac: document.getElementById('m2_accCapac').value,
+                m2_nroHoras: document.getElementById('m2_nroHoras').value,
+                m2_asesoria: document.getElementById('m2_asesoria').value,
+                m2_hombres: document.getElementById('m2_hombres').value,
+                m2_mujeres: document.getElementById('m2_mujeres').value,
+                m2_totalPart: document.getElementById('m2_totalPart').value,
+                m2_totalAT: document.getElementById('m2_totalAT').value,
+                m2_cumplidas: document.getElementById('m2_cumplidas').value,
+                m3_servicio: document.getElementById('m3_servicio').value,
+                m3_sistema: document.getElementById('m3_sistema').value,
+                m3_accAcomp: document.getElementById('m3_accAcomp').value,
+                m3_accCapac: document.getElementById('m3_accCapac').value,
+                m3_asesoria: document.getElementById('m3_asesoria').value,
+                m3_totalAT: document.getElementById('m3_totalAT').value,
+                m3_culmina: document.getElementById('m3_culmina').value,
+                m4_otrasAT: document.getElementById('m4_otrasAT').value,
+                m4_culminaAT: document.getElementById('m4_culminaAT').value,
+                m4_procCapac: document.getElementById('m4_procCapac').value,
+                m4_horas: document.getElementById('m4_horas').value,
+                m4_culminaCapac: document.getElementById('m4_culminaCapac').value,
+                m4_hombres: document.getElementById('m4_hombres').value,
+                m4_mujeres: document.getElementById('m4_mujeres').value,
+                m4_totalPart: document.getElementById('m4_totalPart').value,
+                m4_otrasAct: document.getElementById('m4_otrasAct').value,
+                m4_culminaOtras: document.getElementById('m4_culminaOtras').value,
+                m5_aplica: document.getElementById('m5_aplica').value,
+                m5_herramienta: document.getElementById('m5_herramienta').value,
+                m5_estado: document.getElementById('m5_estado').value,
+                m5_optimo: document.getElementById('m5_optimo').value,
+                m5_regular: document.getElementById('m5_regular').value,
+                m5_deficiente: document.getElementById('m5_deficiente').value,
+                m5_noAplica: document.getElementById('m5_noAplica').value,
+                m5_totalPreg: document.getElementById('m5_totalPreg').value,
+                m5_pct: document.getElementById('m5_pct').value,
+                m5_incEG: document.getElementById('m5_incEG').value,
+                m5_indCuest: document.getElementById('m5_indCuest').value,
+                m5_incByS: document.getElementById('m5_incByS').value,
+                m6_aplica: document.getElementById('m6_aplica').value,
+                m6_ig: document.getElementById('m6_ig').value.replace('%','') + '%',
+                m6_ie1: document.getElementById('m6_ie1').value.replace('%','') + '%',
+                m6_ie2: document.getElementById('m6_ie2').value.replace('%','') + '%',
+                m6_ie3: document.getElementById('m6_ie3').value.replace('%','') + '%',
+                m6_ie4: document.getElementById('m6_ie4').value.replace('%','') + '%',
+                m6_ie5: document.getElementById('m6_ie5').value.replace('%','') + '%',
+                m7_eje: document.getElementById('m7_eje').value,
+                m7_articulado: document.getElementById('m7_articulado').value,
+                m7_l1: document.getElementById('m7_l1').value,
+                m7_l2: document.getElementById('m7_l2').value,
+                m7_l3: document.getElementById('m7_l3').value,
+                m7_l4: document.getElementById('m7_l4').value,
+                m7_l5: document.getElementById('m7_l5').value,
+                m7_l6: document.getElementById('m7_l6').value,
+                m7_fc: document.getElementById('m7_fc').value,
+                m8_poiDteg: document.getElementById('m8_poiDteg').value,
+                m8_denomActOp: document.getElementById('m8_denomActOp').value || 'N/A',
+                m8_tareaPoi: document.getElementById('m8_tareaPoi').value,
+                m8_denomTarea: document.getElementById('m8_denomTarea').value,
+                m8_progAT: document.getElementById('m8_progAT').value,
+                m8_denomPlanAT: document.getElementById('m8_denomPlanAT').value || 'N/A',
+                m8_progMig: document.getElementById('m8_progMig').value,
+                m8_denomPlanMig: document.getElementById('m8_denomPlanMig').value || 'N/A'
+            };
+
+            dbRef.child(editCloudKey).update(registroEditado).then(() => {
+                alert('¡Registro modificado correctamente en la nube!');
+                limpiarFormulario();
+            }).catch(err => alert("Error al modificar: " + err));
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('formEstructura').reset();
+            document.getElementById('m1_fechaReg').value = formatearFecha(new Date());
+            document.getElementById('m1_entidad').disabled = true;
+            editCloudKey = null;
+            document.getElementById('btnGuardar').style.display = 'inline-flex';
+            document.getElementById('btnModificar').style.display = 'none';
+            generarCodigos();
+            calcM2(); calcM3(); calcM4(); calcM5();
+        }
+
+        function renderizarTabla() {
+            const tbody = document.getElementById('tablaCuerpo');
+            const fSec = document.getElementById('filtroSector').value;
+            tbody.innerHTML = '';
+            
+            // Para mostrar el último ingresado primero, clonamos el array y lo invertimos
+            const datosParaTabla = [...db].reverse().filter(d => !fSec || d.m1_sector === fSec);
+            
+            datosParaTabla.forEach((item) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="white-space:nowrap;">
+                            <div class="action-btns">
+                                <button class="btn-icon btn-icon-view" title="Ver Detalle" onclick="verDetalle('${item.cloudId}')">👁️</button>
+                                <button class="btn-icon btn-icon-edit" title="Modificar Registro" onclick="cargarRegistroParaModificar('${item.cloudId}')">✏️</button>
+                                <button class="btn-icon btn-icon-delete" title="Eliminar Registro" onclick="eliminar('${item.cloudId}')">🗑️</button>
+                            </div>
+                        </td>
+                        <td><b>${item.cod}</b></td>
+                        <td>${item.m1_especialista}</td>
+                        <td>${item.m1_sector}</td>
+                        <td>${item.m1_entidad}</td>
+                        <td><small>📄 ${item.m1_evidencia}</small></td>
+                        <td>${item.m2_totalAT}</td>
+                        <td>${item.m2_totalPart}</td>
+                        <td>${item.m5_pct}</td>
+                        <td><span class="tag ${item.m5_incEG === 'SI' ? 'tag-si' : 'tag-no'}">${item.m5_incEG}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function verDetalle(cloudId) {
+            const item = db.find(r => r.cloudId === cloudId);
+            if(!item) return;
+            
+            document.getElementById('modalDetalleCuerpo').innerHTML = `
+                <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:10px;"><b>MÓDULO 1: DATOS GENERALES</b><br>Código: ${item.cod} | Especialista: ${item.m1_especialista} | Sector: ${item.m1_sector} | Entidad: ${item.m1_entidad}</div>
+                <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:10px;"><b>MÓDULO 2 & 3: AT PLAN MIG & PROTOCOLOS</b><br>Total AT M2: ${item.m2_totalAT} | Total Participantes: ${item.m2_totalPart} | Servicio M3: ${item.m3_servicio}</div>
+                <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:10px;"><b>MÓDULO 4 & 5: OTRAS INTERVENCIONES Y HERRAMIENTAS</b><br>Otras AT: ${item.m4_otrasAT} | Herramienta M5: ${item.m5_herramienta} | ¿Incorpora EG?: ${item.m5_incEG}</div>
+                <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:10px;"><b>MÓDULO 6 & 7: ESTEREOTIPOS Y LINEAMIENTOS</b><br>IG Estereotipos: ${item.m6_ig} | Eje Temático M7: ${item.m7_eje}</div>
+                <div style="background:#f8fafc; padding:10px; border-radius:6px;"><b>MÓDULO 8: ARTICULACIÓN OTROS INSTRUMENTOS</b><br>POI DTEG: ${item.m8_poiDteg} | Tarea POI: ${item.m8_denomTarea}</div>
+            `;
+            document.getElementById('modalVer').style.display = 'flex';
+        }
+
+        function cerrarModal() { document.getElementById('modalVer').style.display = 'none'; }
+        
+        function eliminar(cloudId) { 
+            if(confirm('¿Desea eliminar este registro de la base de datos oficial?')) { 
+                dbRef.child(cloudId).remove().catch(err => alert("Error al eliminar: " + err));
+            } 
+        }
+
+        function initDashboard() {
+            const c1 = document.getElementById('chartSectores').getContext('2d');
+            chart1 = new Chart(c1, { type: 'bar', data: { labels: [], datasets: [{ label: 'Fichas por Sector', data: [], backgroundColor: '#5346ea' }] }, options: { responsive: true, maintainAspectRatio: false } });
+
+            const c2 = document.getElementById('chartEG').getContext('2d');
+            chart2 = new Chart(c2, { type: 'pie', data: { labels: ['Incorpora EG (SI)', 'No Incorpora (NO)'], datasets: [{ data: [0, 0], backgroundColor: ['#2ed573', '#ff4757'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        }
+
+        function actualizarDashboard() {
+            document.getElementById('kpiTotal').innerText = db.length;
+            document.getElementById('kpiParticipantes').innerText = db.reduce((acc, c) => acc + parseInt(c.m2_totalPart || 0), 0);
+            const si = db.filter(d => d.m5_incEG === 'SI').length;
+            document.getElementById('kpiEG').innerText = db.length ? `${((si / db.length) * 100).toFixed(0)}%` : '0%';
+
+            const sectoresUnicos = [...new Set(db.map(d => d.m1_sector))];
+            chart1.data.labels = sectoresUnicos.length > 0 ? sectoresUnicos : ['Sin datos'];
+            chart1.data.datasets[0].data = sectoresUnicos.map(s => db.filter(d => d.m1_sector === s).length);
+            chart1.update();
+
+            chart2.data.datasets[0].data = [si, db.length - si];
+            chart2.update();
+        }
+
+        function cargarDemoData() {
+            if(!confirm("Esto enviará 50 registros de prueba a tu base de datos en Firebase. ¿Deseas continuar?")) return;
+            
+            const especialistas = ["ALE SANCHEZ, ISABEL", "ALEGRE ALMIRENA, SOLEDAD", "APARCANA BRAVO, FLOR", "ARAUJO BOID, FRANCISCA", "CORNEJO LOBO, REBECA"];
+            const sectoresKeys = Object.keys(sectoresData);
+            const tiposEvento = ["ACCIÓN", "ACTIVIDAD"];
+
+            // Subimos uno por uno rápidamente a Firebase
+            for(let i=1; i<=50; i++) {
+                const tipoEvento = tiposEvento[i % 2 === 0 ? 0 : 1];
+                const prefijo = tipoEvento === 'ACCIÓN' ? 'ACC' : 'ACT';
+                const nOrden = db.length + i; // Estimado para el demo
+                
+                const cod = `EVT-${prefijo}-2026-${String(nOrden).padStart(4, '0')}`;
+                const nroOrden = String(nOrden).padStart(3, '0');
+                const sector = sectoresKeys[i % sectoresKeys.length];
+                const entidad = sectoresData[sector][0];
+                const incEG = i % 3 === 0 ? 'NO' : 'SI';
+                const pct = incEG === 'SI' ? '80.5%' : '40.0%';
+
+                const nuevoObj = {
+                    cod: cod,
+                    m1_especialista: especialistas[i % 5], m1_fechaReg: formatearFecha(new Date()), m1_sector: sector, m1_entidad: entidad, m1_mig: 'SI', m1_entPriorizada: 'SI', m1_tipoEvento: tipoEvento, m1_nroOrden: nroOrden, m1_denomEvento: `Evento de Prueba ${i}`, m1_unidadMedida: 'UM1', m1_tipoIntervencion: '1. Asistencia Técnica - Protocolos', m1_fechaIntervencion: '2026-03-15', m1_nomDoc: `Informe N° 0${i}-2026`, m1_evidencia: `evidencia_${i}.pdf`,
+                    m2_procAcomp: 2, m2_accAcomp: 3, m2_accCapac: 2, m2_nroHoras: 10, m2_asesoria: 4, m2_hombres: 15, m2_mujeres: 27, m2_totalPart: 42, m2_totalAT: 9, m2_cumplidas: 'SI',
+                    m3_servicio: '1. Incorporación del EG en Sistemas Administrativos', m3_sistema: '1. Planeamiento Estratégico', m3_accAcomp: 2, m3_accCapac: 2, m3_asesoria: 2, m3_totalAT: 6, m3_culmina: 'SI',
+                    m4_otrasAT: '1. Asesoría Especializada', m4_culminaAT: 'SI', m4_procCapac: '4. Taller', m4_horas: 8, m4_culminaCapac: 'SI', m4_hombres: 10, m4_mujeres: 10, m4_totalPart: 20, m4_otrasAct: '2. Evento', m4_culminaOtras: 'SI',
+                    m5_aplica: 'SI', m5_herramienta: '1. Incorporación del EG en el Planeamiento y Presupuesto', m5_estado: '3. Concluido', m5_optimo: 25, m5_regular: 15, m5_deficiente: 5, m5_noAplica: 5, m5_totalPreg: 45, m5_pct: pct, m5_incEG: incEG, m5_indCuest: '1. Indicador A', m5_incByS: 'SI',
+                    m6_aplica: 'SI', m6_ig: '15%', m6_ie1: '10%', m6_ie2: '5%', m6_ie3: '12%', m6_ie4: '8%', m6_ie5: '90%',
+                    m7_eje: 'I. DOCUMENTO E INSTRUMENTO DE GESTIÓN', m7_articulado: 'SI', m7_l1: 'SI', m7_l2: 'SI', m7_l3: 'SI', m7_l4: 'SI', m7_l5: 'SI', m7_l6: 'SI', m7_fc: 'SI',
+                    m8_poiDteg: 'SI', m8_denomActOp: 'Fortalecimiento...', m8_tareaPoi: 'SI', m8_denomTarea: 'T1...', m8_progAT: 'SI', m8_denomPlanAT: 'Plan AT', m8_progMig: 'SI', m8_denomPlanMig: 'Plan MIG'
+                };
+                dbRef.push(nuevoObj);
+            }
+            alert("Los registros se están cargando en la nube. Aparecerán en la tabla brevemente.");
+        }
+
+        async function exportarExcelNativo() {
+            if (db.length === 0) { alert('No hay registros almacenados para exportar.'); return; }
+            const workbook = new ExcelJS.Workbook();
+
+            const modulos = [
+                {
+                    name: 'Módulo 1 - Datos Generales', bg: '1E3A8A',
+                    headers: ['Código Evento', 'Especialista', 'Fecha Registro', 'Sector', 'Entidad', 'MIG', 'Entidad Priorizada', 'Tipo Evento', 'N° Orden', 'Denominación Evento', 'Unidad Medida', 'Tipo Intervención', 'Fecha Intervención', 'Nombre Documento', 'Evidencia PDF'],
+                    mapData: (item) => [item.cod, item.m1_especialista, formatFechaExcel(item.m1_fechaReg), item.m1_sector, item.m1_entidad, item.m1_mig, item.m1_entPriorizada, item.m1_tipoEvento, item.m1_nroOrden, item.m1_denomEvento, item.m1_unidadMedida, item.m1_tipoIntervencion, formatFechaExcel(item.m1_fechaIntervencion), item.m1_nomDoc, item.m1_evidencia]
+                },
+                {
+                    name: 'Módulo 2 - AT Plan MIG', bg: '1E40AF',
+                    headers: ['Código Evento', 'Proc. Acompañamiento', 'Acc. Acompañamiento', 'Acc. Capacitación', 'N° Horas', 'Asesoría Técnica', 'Part. Hombres', 'Part. Mujeres', 'Total Participantes', 'Total AT', 'Asist. Mínimas Cumplidas'],
+                    mapData: (item) => [item.cod, item.m2_procAcomp, item.m2_accAcomp, item.m2_accCapac, item.m2_nroHoras, item.m2_asesoria, item.m2_hombres, item.m2_mujeres, item.m2_totalPart, item.m2_totalAT, item.m2_cumplidas]
+                },
+                {
+                    name: 'Módulo 3 - AT Protocolos', bg: '1D4ED8',
+                    headers: ['Código Evento', 'Servicio Protocolo', 'Sistema Administrativo', 'Acc. Acompañamiento', 'Acc. Capacitación', 'Asesoría Técnica', 'Total AT', '¿Culmina Actividad?'],
+                    mapData: (item) => [item.cod, item.m3_servicio, item.m3_sistema, item.m3_accAcomp, item.m3_accCapac, item.m3_asesoria, item.m3_totalAT, item.m3_culmina]
+                },
+                {
+                    name: 'Módulo 4 - Otras Interv.', bg: '2563EB',
+                    headers: ['Código Evento', 'Otras AT y Asesorías', '¿Culmina AT?', 'Proc. Capacitación No AT', 'N° Horas', '¿Culmina Capacitación?', 'Part. Hombres', 'Part. Mujeres', 'Total Participantes', 'Otras Actividades', '¿Culmina Otras Act.?'],
+                    mapData: (item) => [item.cod, item.m4_otrasAT, item.m4_culminaAT, item.m4_procCapac, item.m4_horas, item.m4_culminaCapac, item.m4_hombres, item.m4_mujeres, item.m4_totalPart, item.m4_otrasAct, item.m4_culminaOtras]
+                },
+                {
+                    name: 'Módulo 5 - Herramientas', bg: '0D9488',
+                    headers: ['Código Evento', '¿Aplica Herramientas?', 'Herramienta Aplicada', 'Estado Aplicación', 'Óptimo', 'Regular', 'Deficiente', 'No Aplica', 'Total Preguntas', 'Porcentaje (%)', '¿Incorpora EG? (>=60%)', 'Indicador Cuestionario B&S', '¿Incorpora EG en B&S?'],
+                    mapData: (item) => [item.cod, item.m5_aplica, item.m5_herramienta, item.m5_estado, item.m5_optimo, item.m5_regular, item.m5_deficiente, item.m5_noAplica, item.m5_totalPreg, item.m5_pct, item.m5_incEG, item.m5_indCuest, item.m5_incByS]
+                },
+                {
+                    name: 'Módulo 6 - Estereotipos', bg: '0284C7',
+                    headers: ['Código Evento', '¿Aplica Encuesta?', 'IG % Estereotipos', 'IE1 % Privado y Social', 'IE2 % Violencia Género', 'IE3 % Ámbito Laboral', 'IE4 % Hostigamiento Sexual', 'IE5 % Conceptos Género'],
+                    mapData: (item) => [item.cod, item.m6_aplica, item.m6_ig, item.m6_ie1, item.m6_ie2, item.m6_ie3, item.m6_ie4, item.m6_ie5]
+                },
+                {
+                    name: 'Módulo 7 - Lineamientos', bg: '4F46E5',
+                    headers: ['Código Evento', 'Eje Temático', '¿Articulado Lineamientos TEG?', 'L1 Planeamiento Estratégico', 'L2 SNPMI', 'L3 Provisión B&S', 'L4 Organización Institucional', 'L5 Presupuesto Público', 'L6 Seguimiento y Evaluación', 'Función Competencial'],
+                    mapData: (item) => [item.cod, item.m7_eje, item.m7_articulado, item.m7_l1, item.m7_l2, item.m7_l3, item.m7_l4, item.m7_l5, item.m7_l6, item.m7_fc]
+                },
+                {
+                    name: 'Módulo 8 - Otros Inst.', bg: '0369A1',
+                    headers: ['Código Evento', '¿Programada POI DTEG?', 'Denominación Act. Operativa', '¿Programada Tarea POI?', 'Denominación Tarea', '¿Programada Plan AT?', 'Denominación Act. Plan AT', '¿Programada Plan MIG?', 'Denominación Act. Plan MIG'],
+                    mapData: (item) => [item.cod, item.m8_poiDteg, item.m8_denomActOp, item.m8_tareaPoi, item.m8_denomTarea, item.m8_progAT, item.m8_denomPlanAT, item.m8_progMig, item.m8_denomPlanMig]
+                }
+            ];
+
+            // Generación de cada hoja de Excel
+            modulos.forEach(mod => {
+                const sheet = workbook.addWorksheet(mod.name);
+                
+                // Formato de Encabezados (Fila 1)
+                const headerRow = sheet.addRow(mod.headers);
+                headerRow.eachCell(cell => {
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: mod.bg } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                    cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                });
+
+                // Inyección de Datos con bordes y sombreado intercalado
+                db.forEach((item, index) => {
+                    const row = sheet.addRow(mod.mapData(item));
+                    row.eachCell(cell => {
+                        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                        cell.alignment = { vertical: 'middle', wrapText: true };
+                    });
+                    if (index % 2 === 0) {
+                        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F8FAFC' } };
+                    }
+                });
+
+                // Auto-ajuste de columnas por hoja
+                sheet.columns.forEach(column => {
+                    let maxLength = 0;
+                    column.eachCell({ includeEmpty: true }, cell => {
+                        let columnLength = cell.value ? cell.value.toString().length : 12;
+                        if (columnLength > maxLength) maxLength = columnLength;
+                    });
+                    column.width = maxLength < 14 ? 14 : (maxLength > 40 ? 40 : maxLength + 2);
+                });
+            });
+
+            // Descarga del archivo
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Reporte_TEG_8Modulos_Separados_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+    </script>
+</body>
+</html>
